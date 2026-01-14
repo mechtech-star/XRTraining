@@ -1,0 +1,3 @@
+[submodule "external/immersive-web-sdk"]
+	path = external/immersive-web-sdk
+	url = https://github.com/facebook/immersive-web-sdk.git
