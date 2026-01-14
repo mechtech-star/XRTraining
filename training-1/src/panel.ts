@@ -5,7 +5,6 @@ import {
   eq,
   VisibilityState,
   UIKitDocument,
-  UIKit,
 } from "@iwsdk/core";
 
 export class PanelSystem extends createSystem({

@@ -2,9 +2,7 @@
   .panel-container {
     align-items: flex-start;
     padding: 2;
-    width: 100;
-    height: 70;
-    gap: 1.5;
+    width: 50;
     display: flex;
     flex-direction: column;
     background-color: #09090b;
@@ -27,10 +25,10 @@
     margin-top: 0.3;
   }
 
-  #xr-button {
+  #back-button {
     width: 100%;
     padding: 1.5;
-    margin-top: auto;
+    margin-top: 2;
     background-color: #fafafa;
     color: #09090b;
     border-radius: 1.5;
@@ -42,10 +40,32 @@
     cursor: pointer;
   }
 
+  #next-button {
+    width: 100%;
+    padding: 1.5;
+    margin-top: 2;
+    background-color: #fafafa;
+    color: #09090b;
+    border-radius: 1.5;
+    border-width: 0.1;
+    border-color: #e4e4e7;
+    font-size: 2.5;
+    font-weight: medium;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .button-row {
+    gap: 2;
+  }
+
 </style>
 <div class="panel-container">
-  <span class="heading"> Hello, Immersive Web! </span>
-  <span class="sub-heading"> Explore locomotion, grab interactions, spatial UI panel and more -
-    start building for the immersive web with Immersive Web SDK today.</span>
-  <button id="xr-button" style="background-color: #0091ff">Enter XR</button>
+  <span class="heading">Step 2</span>
+  <span class="sub-heading"> Content 2</span>
+  <div class="button-row"
+    style="width: 100%; display: flex; justify-content: space-between; margin-top: 2;">
+    <button id="back-button">Back</button>
+    <button id="next-button">Next</button>
+  </div>
 </div>
