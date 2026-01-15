@@ -1,186 +1,160 @@
 ## Purpose
 
-Concise, actionable guidance for AI coding agents to be productive in this repo.
+Actionable guidance for AI agents working in this XR training platform—a full-stack system for authoring and delivering immersive training modules.
 
-**Repo at-a-glance**
-- `training-1/`, `training-2/`: example apps that run with Vite and consume the local SDK.
-- `external/immersive-web-sdk/`: SDK source tree (packages under `packages/`) — treat as upstream unless explicitly modifying SDK code.
+## System Architecture (3 main components)
 
-**Quick workflows**
-- App dev (example):
+**Three independent services that run concurrently:**
 
+1. **`backend/`** — Django REST API + PostgreSQL (port 8000)
+   - Authoring pipeline: modules, steps, assets (GLTF uploads), publishing
+   - Immutable versioned payloads for runtime consumption
+   - Media storage: `media/assets/{type}/{uuid}/original.{ext}`
+
+2. **`frontend/`** — React + TypeScript authoring UI (port 5173)
+   - Module editor, step management, asset upload/assignment
+   - Real-time persistence via centralized `apiClient` (`src/lib/api.ts`)
+   - Communicates with backend at `http://localhost:8000/api`
+
+3. **`engine/`** — XR runtime using Immersive Web SDK (port 8081)
+   - WebXR application with ECS architecture (`@iwsdk/core`)
+   - Vite plugins: emulator injection (`injectIWER`), UIKitML compilation, GLTF optimization
+   - Consumes published module payloads from backend for runtime delivery
+
+4. **`external/immersive-web-sdk/`** — SDK submodule (upstream dependency)
+   - Treat as read-only unless explicitly modifying SDK code
+   - Build `.tgz` packages with `pnpm install && npm run build:tgz` when SDK changes needed
+
+## Quick Start (run all 3 services)
+
+**Terminal 1 — Backend:**
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate  # Windows (use source venv/bin/activate on Unix)
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
 ```
-cd training-1
+
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
 npm install
-npm run dev
+npm run dev  # Opens http://localhost:5173
 ```
 
-- If you want the alternate example:
-
-```
-cd training-2
+**Terminal 3 — Engine (XR Runtime):**
+```bash
+cd engine
 npm install
-npm run dev
+npm run dev  # Opens https://localhost:8081 with TLS (mkcert)
 ```
 
-Note: `training-2`'s dev server uses `vite` with `mkcert()` enabled and default server port `8081` in `training-2/vite.config.ts` (use `server.port` to change).
+## Key Files & Patterns
 
-**Where to look (high value files)**n+- `training-1/vite.config.ts`, `training-2/vite.config.ts`: plugin pipeline (emulator injection via `injectIWER`, metaspatial discovery where present, UIKitML compilation, GLTF optimizer). `training-2` enables `mkcert()`.
-- `training-1/src/index.ts`, `training-2/src/index.ts`: app bootstrap and `world.registerSystem(...)` usage — follow this pattern to add runtime systems.
-- `training-1/metaspatial/`: scene/component sources and `components/` — edit these sources, not generated GLXF.
-- `training-1/ui/*.uikitml` and `training-2/ui/*.uikitml`: UI sources compiled to `public/ui/*.json` by the `vite-plugin-uikitml`.
+**Backend (Django + DRF):**
+- [`backend/backend/settings.py`](backend/backend/settings.py) — PostgreSQL config, CORS, media settings, REST framework
+- [`backend/authoring/models/`](backend/authoring/models/) — `Module`, `Step`, `Asset`, `StepAsset`, `PublishedModule` (UUID primary keys)
+- [`backend/authoring/views/`](backend/authoring/views/) — DRF views: CRUD + publish/runtime endpoints
+- [`backend/authoring/services/publish_service.py`](backend/authoring/services/publish_service.py) — Compiles immutable runtime payloads with versioning
+- API patterns: UUID-based resources, atomic transactions, multipart uploads for assets
 
-**Project conventions (practical rules for edits)**
-- Runtime uses an Entity Component System from `@iwsdk/core`. Add systems in `training-*/src/` and register them via `world.registerSystem(YourSystem)` in the example's `src/index.ts`.
-- Asset manifests follow the typed shape (`url`, `type`, `priority`) — see `training-2/src/index.ts` for a direct example of `AssetManifest` entries.
-- Metaspatial sources are the source-of-truth — do not hand-edit `public/glxf` or other generated outputs.
-- UIKitML is authored under `ui/*.uikitml`; the plugin compiles to `public/ui/*.json`.
+**Frontend (React):**
+- [`frontend/src/lib/api.ts`](frontend/src/lib/api.ts) — Centralized `apiClient` wrapping all backend endpoints (modules, steps, assets, publish)
+- [`frontend/src/pages/homedevelop.tsx`](frontend/src/pages/homedevelop.tsx) — Module creation flow
+- [`frontend/src/pages/createmodule.tsx`](frontend/src/pages/createmodule.tsx) — Step editor with auto-save on every change
+- [`frontend/src/components/asset-sidebar.tsx`](frontend/src/components/asset-sidebar.tsx) — Drag-drop GLTF upload + asset assignment
+- UI stack: Radix UI primitives, Tailwind 4.x, React Router, TypeScript strict mode
 
-**Training-2 specific notes**
-- Port & TLS: `training-2/vite.config.ts` sets `server.port` to `8081` and uses `vite-plugin-mkcert` to generate a local TLS cert for secure contexts — required for some XR features and the emulator.
-- `injectIWER` options in `vite.config.ts` (e.g., `device: "metaQuest3"`, `activation: "localhost"`) are example emulator settings the agent can mirror when injecting runtime emulation.
-- `training-2/package.json` pins `@iwsdk/*` plugin versions and uses `three` via the `super-three` alias — be consistent with those versions when editing example code or updating deps.
+**Engine (XR Runtime):**
+- [`engine/src/index.ts`](engine/src/index.ts) — App bootstrap: `World.create({ assets, xr, features })` then `world.registerSystem(...)`
+- [`engine/vite.config.ts`](engine/vite.config.ts) — Plugin chain: `mkcert()` (TLS), `injectIWER` (emulator), `compileUIKit`, `optimizeGLTF`
+- [`engine/ui/*.uikitml`](engine/ui/) — UI sources compiled to `public/ui/*.json` by Vite plugin (edit `.uikitml`, not JSON)
+- ECS architecture: systems extend base classes, register via `world.registerSystem(YourSystem)`
+- Asset manifests: typed objects with `{ url, type: AssetType.GLTF, priority: "critical" }`
+- Engine requires Node >= 20.19.0, uses `super-three` (pinned Three.js fork)
 
-**Integration notes**
-- Examples import `@iwsdk/*` from `external/immersive-web-sdk` when using local packages. To test SDK changes, build `.tgz` artifacts in `external/immersive-web-sdk` and consume them in `training-*` examples.
+## Project-Specific Conventions
 
-**Examples & copyable commands**
-- Dev server (training-2):
+**Backend:**
+- All models use UUID primary keys (`id = models.UUIDField(primary_key=True, default=uuid.uuid4)`)
+- Publishing is immutable: creates `PublishedModule` with incremented version, never modifies existing publishes
+- Steps use `order_index` for sequencing; reordering is atomic per module
+- Asset validation: size limits (100MB default), extension checks per type (GLTF: `.glb`/`.gltf`)
+- CORS is wide-open in dev (`CORS_ALLOW_ALL_ORIGINS=True`); tighten for production
 
-```
-cd training-2
-npm install
-npm run dev
-```
+**Frontend:**
+- All backend communication goes through `apiClient` (no direct `fetch` outside `api.ts`)
+- Auto-save on step edits: debounced calls to `apiClient.updateStep()`
+- Error handling: catch API errors, display red notification boxes to user
+- Drag-drop uploads: `<input type="file" accept=".glb,.gltf">` → `apiClient.uploadAsset()`
+- Environment: `VITE_API_URL` points to backend (default `http://localhost:8000/api`)
 
-- Build SDK (when needed):
+**Engine:**
+- **Never edit generated artifacts:** `public/glxf`, `public/ui/*.json`, optimized `public/gltf` are build outputs
+- Edit sources instead: `ui/*.uikitml` for UI, metaspatial sources for scenes (if present)
+- ECS pattern: create systems in `src/`, register via `world.registerSystem(YourSystem)` in `index.ts`
+- Asset manifests are defined at app bootstrap; add entries to `assets` object with proper types
+- UIKitML uses custom declarative syntax compiled at build time—refer to SDK docs for syntax
 
-```
-cd external/immersive-web-sdk
-pnpm install
-npm run build:tgz
-```
+## Integration Points & Data Flow
 
-**Do not edit generated artifacts**
-- `public/glxf`, `public/ui/*.json`, and optimized `public/gltf` are build outputs. Edit sources under `metaspatial/`, `ui/`, or `src/` instead.
+**Authoring Flow (Frontend → Backend):**
+1. User creates module in frontend → `POST /api/modules`
+2. User adds steps → `POST /api/modules/{moduleId}/steps`
+3. User uploads GLTF → `POST /api/assets/upload` (multipart/form-data)
+4. User assigns asset to step → `POST /api/steps/{stepId}/assets`
+5. User clicks "Publish" → `POST /api/modules/{moduleId}/publish` (service compiles immutable payload)
 
-If you'd like, I can also add a short checklist for running `training-2` with `mkcert` on Windows, or expand CI/test instructions. Which would help most?
-## Purpose
+**Runtime Consumption (Engine ← Backend):**
+1. Engine fetches published module → `GET /api/modules/{moduleId}/runtime`
+2. Response includes: module metadata, ordered steps, associated asset URLs
+3. Engine loads assets via Asset Manager, creates ECS entities, registers systems
+4. XR session begins with `World.create()`, presenting training content
 
-This file gives concise, actionable guidance to AI coding agents working in this repository so they can be immediately productive.
+**Cross-service communication:**
+- Frontend ↔ Backend: REST JSON over HTTP (CORS enabled)
+- Engine ↔ Backend: Fetches runtime payloads (GET requests, no auth in current impl)
+- Engine ↔ SDK: Local `@iwsdk/*` package imports from `external/immersive-web-sdk`
 
-**Repo structure (high level):**
-- `training-1/`: Starter app template that the generator uses; contains the runnable example and Vite-based dev flow.
-- `external/immersive-web-sdk/`: Submodule SDK used by `training-1` (`@iwsdk/*` packages). Treat this as an upstream dependency unless explicitly modifying SDK code.
+## Common Tasks
 
-**Primary developer workflows**
-- Local dev (app):
-  - `cd training-1` then `npm install` (uses Node >= 20.19.0) and `npm run dev` to start Vite dev server.
-  - Build for production: `npm run build` and preview with `npm run preview`.
-- SDK local-development (only if working on SDK):
-  - From `external/immersive-web-sdk`: use `pnpm install` then `npm run build:tgz` to produce local `.tgz` packages; examples consume `.tgz` when running `fresh:dev`.
+**Add a backend endpoint:**
+1. Define model in `backend/authoring/models/`
+2. Create serializer in `backend/authoring/serializers/`
+3. Implement view in `backend/authoring/views/`
+4. Register route in `backend/authoring/urls.py`
+5. Add corresponding method to `frontend/src/lib/api.ts`
 
-**Key files and patterns to reference**
-- `training-1/package.json` — main scripts (`dev`, `build`, `preview`) and dependencies (`@iwsdk/core`, `three`).
-- `training-1/vite.config.ts` — central plugin configuration: `@iwsdk/vite-plugin-iwer` (emulator injection), `vite-plugin-metaspatial` (component discovery + GLXF generation), `vite-plugin-uikitml` (compiles `ui/*.uikitml` → `public/ui/*.json`), and `optimizeGLTF`.
-- `training-1/src/index.ts` — app bootstrap pattern: `World.create(..., { assets, xr, features, level })` and `world.registerSystem(...)`. Look here for runtime conventions (asset manifest, systems, camera setup).
-- `training-1/ui/welcome.uikitml` — authored UI compiled by plugin to `public/ui/welcome.json` on build.
-- `training-1/metaspatial/` — scene and component sources; `vite` plugins auto-discover and generate GLXF into `public/glxf`.
-- `external/immersive-web-sdk/README.md` — documents SDK development workflow and explains `.tgz`-based example consumption.
+**Add a frontend feature:**
+1. Implement UI in `frontend/src/pages/` or `frontend/src/components/`
+2. Call `apiClient.{method}()` for backend communication
+3. Handle loading/error states with try-catch and user notifications
+4. Update routing in `frontend/src/App.tsx` if adding new pages
 
-**Project-specific conventions and patterns**
-- Uses an Entity Component System provided by `@iwsdk/core`. New runtime logic should register systems via `world.registerSystem(YourSystem)`.
-- Asset manifests use a small typed shape (see `src/index.ts`): `AssetManifest` entries specify `url`, `type` (e.g., `AssetType.Audio`), and `priority`.
-- Metaspatial workflow: source components live under `metaspatial/components`; `discoverComponents` plugin reads `.ts`/`.js` and `generateGLXF` emits scenes into `public/glxf`. When changing scene content, update metaspatial sources, not just `public/` artifacts.
-- UIKitML: UI authored in `ui/*.uikitml` and compiled to JSON by `compileUIKit`—edit source `.uikitml` files, not the generated `public/ui/*.json`.
+**Add an XR runtime system:**
+1. Create system file in `engine/src/{feature}.ts`
+2. Export system class extending ECS base
+3. Register via `world.registerSystem(YourSystem)` in `engine/src/index.ts`
+4. Add required assets to `assets` manifest if needed
 
-**Integration points & external dependencies**
-- `@iwsdk/*` packages (local SDK under `external/immersive-web-sdk`) provide runtime primitives. Most development happens in `training-1` and consumes the SDK as a package.
-- Vite dev server with special plugins performs heavy lifting (emulator injection, metaspatial compilation, GLTF optimization). Changes to build behavior mostly happen in `training-1/vite.config.ts`.
+**Modify SDK (rare):**
+1. Work in `external/immersive-web-sdk/packages/{package}/`
+2. Build artifacts: `cd external/immersive-web-sdk && pnpm install && npm run build:tgz`
+3. Consume `.tgz` in engine: update `engine/package.json` to point to local `.tgz` file
+4. Test changes, commit SDK changes separately from app changes
 
-**Typical change guidance for an AI agent**
-- To add a runtime feature, modify or add a system under `training-1/src/` and register it via `world.registerSystem(...)` in `src/index.ts` or the appropriate bootstrap.
-- To change scene content, update `training-1/metaspatial` sources and let `vite`/plugins regenerate `public/glxf` (do not hand-edit generated GLXF where possible).
-- To change UI, edit `training-1/ui/*.uikitml`. The plugin compiles it during dev/build.
-- If you need to run the example against the latest SDK code, build SDK `.tgz` files (`external/immersive-web-sdk` → `npm run build:tgz`) and then use example `fresh:dev` workflows described in the SDK README.
+## Environment Requirements
 
-**Environment and runtime notes**
-- Node engine required: `>=20.19.0` (see `training-1/package.json` `engines`).
-- TypeScript settings live in `training-1/tsconfig.json` (includes `src/**/*.ts`). Keep edits consistent with `module: ESNext` and `isolatedModules: true`.
+- **Backend:** Python 3.11+, PostgreSQL 12+
+- **Frontend:** Node.js 18+
+- **Engine:** Node.js >= 20.19.0 (strict requirement in `package.json`)
+- **Dev tools:** `venv` (Python), `npm`/`pnpm`, PostgreSQL client
 
-**Examples (copyable)**
-- Start app dev server:
+## Reference Docs
 
-```
-cd training-1
-npm install
-npm run dev
-## Purpose
-
-Concise, actionable guidance for AI coding agents to be immediately productive in this repository.
-
-**Repo at-a-glance**
-- `training-1/`, `training-2/`: example apps that run with Vite and consume the local SDK.
-- `external/immersive-web-sdk/`: SDK source tree (packages under `packages/`) — treat as upstream unless explicitly modifying SDK code.
-
-**Quick workflows**
-- App dev (example):
-
-```
-cd training-1
-npm install
-npm run dev
-```
-
-- Build & preview:
-
-```
-npm run build
-npm run preview
-```
-
-- SDK local development (only when changing SDK):
-
-```
-cd external/immersive-web-sdk
-pnpm install
-npm run build:tgz
-```
-
-**Where to look (high value files)**n+
-- `training-1/vite.config.ts`: plugin pipeline (emulator injection, metaspatial discovery, UIKitML compilation, GLTF optimization).
-- `training-1/src/index.ts`: app bootstrap, `World.create(...)`, and `world.registerSystem(...)` usage — mirror this pattern for new systems.
-- `training-1/metaspatial/` and `metaspatial/components`: scene/component sources (source-of-truth for GLXF generation).
-- `training-1/ui/*.uikitml`: UI sources compiled to `public/ui/*.json` by the build plugin.
-- `training-1/package.json`: scripts and Node engine (Node >= 20.19.0).
-
-**Project conventions (practical rules for edits)**
-- Runtime is an Entity Component System from `@iwsdk/core`. Add systems in `training-1/src/` and register in `src/index.ts`.
-- Asset manifest entries follow a typed shape (`url`, `type`, `priority`) — see `training-1/src/index.ts` for examples.
-- Edit metaspatial sources under `training-1/metaspatial/`; plugins regenerate `public/glxf` — do not hand-edit generated `public/*` outputs.
-- Edit `ui/*.uikitml` files; compiled UI appears in `public/ui/`.
-
-**Integration notes**
-- Examples import `@iwsdk/*` packages from `external/immersive-web-sdk`. To test SDK changes, create local `.tgz` packages via `npm run build:tgz` and consume them in the example.
-- Modify build/plugin behavior in `training-1/vite.config.ts` (the Vite plugin chain is authoritative).
-
-**Examples & copyable commands**
-- Dev server (example):
-
-```
-cd training-1
-npm run dev
-```
-
-- Build SDK (when needed):
-
-```
-cd external/immersive-web-sdk
-pnpm install
-npm run build:tgz
-```
-
-**Do not edit generated artifacts**
-- `public/glxf`, `public/ui/*.json`, and optimized `public/gltf` are build outputs. Edit sources under `metaspatial/`, `ui/`, or `src/` instead.
-
-If you want more detail (CI, tests, or a contributor checklist), tell me which area to expand.
+- Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md) — Detailed component diagrams, endpoint mapping
+- Integration: [`INTEGRATION.md`](INTEGRATION.md) — API contracts, data flow, environment setup
+- Quick Start: [`QUICKSTART.md`](QUICKSTART.md) — Step-by-step dev environment setup
+- README: [`README.md`](README.md) — Feature checklist, file structure overview
