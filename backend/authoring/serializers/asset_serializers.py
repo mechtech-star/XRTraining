@@ -6,7 +6,8 @@ class AssetUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Asset
         fields = ["id", "file", "original_filename", "type", "mime_type", "size_bytes", "metadata", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        # Fields populated by the serializer's validate() should be read-only
+        read_only_fields = ["id", "created_at", "original_filename", "mime_type", "size_bytes"]
 
     def validate(self, attrs):
         file_obj = attrs.get("file")
@@ -25,6 +26,16 @@ class AssetUploadSerializer(serializers.ModelSerializer):
         attrs["size_bytes"] = file_obj.size
         attrs["mime_type"] = getattr(file_obj, "content_type", None) or "application/octet-stream"
         attrs["original_filename"] = file_obj.name
+
+        # If metadata was provided as a JSON string (multipart/form-data), parse it.
+        metadata = attrs.get("metadata")
+        if metadata and isinstance(metadata, str):
+            try:
+                import json
+                attrs["metadata"] = json.loads(metadata)
+            except Exception:
+                raise serializers.ValidationError({"metadata": "Invalid JSON"})
+
         return attrs
 
     def to_representation(self, instance):

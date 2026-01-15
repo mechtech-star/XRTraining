@@ -8,8 +8,13 @@ from authoring.views.module_views import (
     ModulePublishView,
     ModuleRuntimeView,
 )
-from authoring.views.asset_views import AssetUploadView, StepAssetAssignView, StepAssetDeleteView
-from authoring.views.asset_views import AssetListView
+from authoring.views.asset_views import (
+    AssetUploadView,
+    AssetListView,
+    AssetDeleteView,
+    StepAssetAssignView,
+    StepAssetDeleteView,
+)
 
 urlpatterns = [
     path("modules", ModuleCreateView.as_view(), name="module-create"),
@@ -19,6 +24,7 @@ urlpatterns = [
     path("modules/<uuid:module_id>/steps/reorder", StepReorderView.as_view(), name="step-reorder"),
     path("assets/upload", AssetUploadView.as_view(), name="asset-upload"),
     path("assets", AssetListView.as_view(), name="asset-list"),
+    path("assets/<uuid:pk>", AssetDeleteView.as_view(), name="asset-delete"),
     path("steps/<uuid:step_id>/assets", StepAssetAssignView.as_view(), name="step-asset-assign"),
     path("step-assets/<uuid:pk>", StepAssetDeleteView.as_view(), name="step-asset-delete"),
     path("modules/<uuid:module_id>/publish", ModulePublishView.as_view(), name="module-publish"),

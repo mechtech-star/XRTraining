@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
 import AssetSidebar from '../../components/pagecomponents/asset-sidebar'
@@ -11,6 +11,8 @@ type Step = {
     title: string
     content: string
     model?: string
+    modelName?: string
+    stepAssetId?: string
 }
 
 export default function CreateModule() {
@@ -22,11 +24,15 @@ export default function CreateModule() {
     const decodedModuleName = moduleName ? decodeURIComponent(moduleName) : 'New Module'
 
     const [steps, setSteps] = useState<Step[]>([])
+    const stepsRef = useRef<Step[]>([])
     const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null)
     const [assets, setAssets] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    // Refs for debounced saves to avoid blocking UI while typing
+    const saveTimeoutsRef = useRef<Record<string, number>>({})
 
     // Load module and assets on mount
     useEffect(() => {
@@ -34,6 +40,11 @@ export default function CreateModule() {
             loadModule()
         }
     }, [moduleId])
+
+    // keep a ref of the latest steps for background save callbacks
+    useEffect(() => {
+        stepsRef.current = steps
+    }, [steps])
 
     useEffect(() => {
         // load available assets for assignment
@@ -50,18 +61,45 @@ export default function CreateModule() {
         return () => { mounted = false }
     }, [])
 
+    // Enrich steps with model names when assets OR steps change.
+    // Only update steps when a modelName actually differs to avoid loops.
+    useEffect(() => {
+        if (!assets || assets.length === 0) return
+        if (!steps || steps.length === 0) return
+        let changed = false
+        const next = steps.map((s) => {
+            if (!s.model) return s
+            const asset = assets.find((a) => a.id === s.model)
+            const name = asset ? (asset.name ?? asset.originalFilename ?? '') : ''
+            if (name && s.modelName !== name) {
+                changed = true
+                return { ...s, modelName: name }
+            }
+            return s
+        })
+        if (changed) setSteps(next)
+    }, [assets, steps])
+
     const loadModule = async () => {
         if (!moduleId) return
         setIsLoading(true)
         try {
             const module = await apiClient.getModule(moduleId)
             // Transform module steps to local format
-            const moduleSteps: Step[] = module.steps.map((step: any) => ({
-                id: step.id,
-                title: step.title,
-                content: step.body,
-                model: step.step_assets?.[0]?.asset?.id,
-            }))
+            const moduleSteps: Step[] = module.steps.map((step: any) => {
+                const assetEntry = step.step_assets?.[0]
+                const assetField = assetEntry?.asset
+                const assetId = assetField && (typeof assetField === 'string' ? assetField : assetField.id)
+                const stepAssetId = assetEntry?.id
+                return {
+                    id: step.id,
+                    title: step.title,
+                    content: step.body,
+                    model: assetId,
+                    modelName: undefined,
+                    stepAssetId,
+                }
+            })
             setSteps(moduleSteps)
         } catch (err) {
             console.error('Failed to load module:', err)
@@ -78,7 +116,7 @@ export default function CreateModule() {
         }
         setIsSaving(true)
         try {
-            const newStep = await apiClient.createStep(moduleId, `Step ${steps.length + 1}`, '', false)
+            const newStep = await apiClient.createStep(moduleId, `Step ${steps.length + 1}`, 'New step content', false)
             const step: Step = {
                 id: newStep.id,
                 title: newStep.title,
@@ -97,24 +135,38 @@ export default function CreateModule() {
         }
     }
 
-    async function updateStep(index: number, patch: Partial<Step>) {
+    function scheduleSave(stepId: string) {
+        // clear previous timer
+        const prev = saveTimeoutsRef.current[stepId]
+        if (prev) window.clearTimeout(prev)
+        // schedule a debounced save to backend
+        const t = window.setTimeout(async () => {
+            const s = stepsRef.current.find((st) => st.id === stepId)
+            if (!s) return
+            try {
+                await apiClient.updateStep(stepId, {
+                    title: s.title,
+                    body: s.content,
+                    required: false,
+                })
+            } catch (err) {
+                console.error('Background save failed for step', stepId, err)
+                setError(`Failed to save step: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            }
+            delete saveTimeoutsRef.current[stepId]
+        }, 700)
+        saveTimeoutsRef.current[stepId] = t as unknown as number
+    }
+
+    function updateStep(index: number, patch: Partial<Step>) {
         const step = steps[index]
         if (!step) return
 
-        setIsSaving(true)
-        try {
-            await apiClient.updateStep(step.id, {
-                title: patch.title || step.title,
-                body: patch.content || step.content,
-                required: false,
-            })
-            setSteps((s) => s.map((st, i) => (i === index ? { ...st, ...patch } : st)))
-        } catch (err) {
-            console.error('Failed to update step:', err)
-            setError(`Failed to update step: ${err instanceof Error ? err.message : 'Unknown error'}`)
-        } finally {
-            setIsSaving(false)
-        }
+        // Optimistically update UI immediately
+        setSteps((s) => s.map((st, i) => (i === index ? { ...st, ...patch } : st)))
+
+        // Schedule debounced background save using step id
+        scheduleSave(step.id)
     }
 
     async function removeStep(index: number) {
@@ -144,11 +196,33 @@ export default function CreateModule() {
 
         setIsSaving(true)
         try {
-            await apiClient.assignAssetToStep(step.id, assetId, 0)
-            updateStep(selectedStepIndex, { model: assetId })
+            const res: any = await apiClient.assignAssetToStep(step.id, assetId, 0)
+            const asset = assets.find((a) => a.id === assetId)
+            const modelName = asset ? (asset.name ?? asset.originalFilename ?? '') : undefined
+            updateStep(selectedStepIndex, { model: assetId, modelName, stepAssetId: res?.id })
         } catch (err) {
             console.error('Failed to assign asset:', err)
             setError(`Failed to assign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    async function unassignModel(index: number) {
+        const step = steps[index]
+        if (!step) return
+        if (!step.stepAssetId) {
+            // nothing to unassign on server, just clear locally
+            updateStep(index, { model: undefined, modelName: undefined, stepAssetId: undefined })
+            return
+        }
+        setIsSaving(true)
+        try {
+            await apiClient.deleteStepAsset(step.stepAssetId)
+            updateStep(index, { model: undefined, modelName: undefined, stepAssetId: undefined })
+        } catch (err) {
+            console.error('Failed to unassign asset:', err)
+            setError(`Failed to unassign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
         } finally {
             setIsSaving(false)
         }
@@ -217,8 +291,10 @@ export default function CreateModule() {
                                     selectedIndex={selectedStepIndex}
                                     onSelect={(i) => setSelectedStepIndex(i)}
                                     onUpdate={updateStep}
+                                    onUnassign={unassignModel}
                                     onRemove={removeStep}
                                     isSaving={isSaving}
+                                    assets={assets}
                                 />
                             </div>
                         </div>

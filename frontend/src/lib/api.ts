@@ -21,7 +21,7 @@ class ApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<T> {
+  ): Promise<T | null> {
     const url = `${this.baseUrl}${endpoint}`
     const response = await fetch(url, {
       headers: {
@@ -32,11 +32,32 @@ class ApiClient {
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      const text = await response.text().catch(() => '')
+      let errorData: any = {}
+      try {
+        errorData = text ? JSON.parse(text) : {}
+      } catch (e) {
+        // ignore non-json error body
+      }
       throw new Error(errorData.detail || errorData.error || `HTTP ${response.status}`)
     }
 
-    return response.json()
+    // Allow for 204 No Content responses
+    if (response.status === 204) return null
+
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      return response.json()
+    }
+
+    // Fallback: try to parse text body as JSON, otherwise return raw text
+    const text = await response.text().catch(() => '')
+    if (!text) return null
+    try {
+      return JSON.parse(text)
+    } catch (e) {
+      return (text as unknown) as T
+    }
   }
 
   // Module API
@@ -53,6 +74,10 @@ class ApiClient {
 
   async getModule(moduleId: string) {
     return this.request(`/modules/${moduleId}`)
+  }
+
+  async getModules() {
+    return this.request(`/modules`)
   }
 
   async updateModule(moduleId: string, updates: any) {
@@ -115,17 +140,53 @@ class ApiClient {
       formData.append('metadata', JSON.stringify(metadata))
     }
 
+    // Debug: log FormData keys being sent
+    try {
+      const keys: string[] = []
+      formData.forEach((v, k) => keys.push(k))
+      // eslint-disable-next-line no-console
+      console.debug('[apiClient] uploadAsset FormData keys:', keys)
+    } catch (e) {
+      // ignore
+    }
+
     const response = await fetch(`${this.baseUrl}/assets/upload`, {
       method: 'POST',
       body: formData,
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      // Try to get raw response text for clearer server error
+      const text = await response.text().catch(() => '')
+      let errorData: any = {}
+      try {
+        errorData = JSON.parse(text || '{}')
+      } catch (e) {
+        // not JSON
+      }
+      // eslint-disable-next-line no-console
+      console.error('[apiClient] uploadAsset failed response:', response.status, text)
       throw new Error(errorData.detail || errorData.error || `HTTP ${response.status}`)
     }
 
     return response.json()
+  }
+
+  async deleteAsset(assetId: string) {
+    const url = `${this.baseUrl}/assets/${assetId}`
+    const response = await fetch(url, { method: 'DELETE' })
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      let errorData: any = {}
+      try {
+        errorData = JSON.parse(text || '{}')
+      } catch (e) {}
+      throw new Error(errorData.detail || errorData.error || `HTTP ${response.status}`)
+    }
+    // allow 204 No Content
+    const text = await response.text().catch(() => '')
+    if (!text) return null
+    return JSON.parse(text)
   }
 
   async getAssets() {

@@ -3,6 +3,7 @@ import ModeSelection from './pages/mode-selection'
 import HomeOperate from './pages/operate/homeoperate'
 import Develop from './pages/develop/indexdevelop'
 import './App.css'
+import { Toaster } from './components/ui/sonner'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/develop/*" element={<Develop />} />
         <Route path="/homeoperate" element={<HomeOperate />} />
       </Routes>
+      <Toaster />
     </Router>
   )
 }

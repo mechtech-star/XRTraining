@@ -1,4 +1,4 @@
-import { Trash2, MoreHorizontal, X, Box } from 'lucide-react'
+import { Trash2, MoreHorizontal, X, Box, Play, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -12,6 +12,8 @@ type Step = {
   title: string
   content: string
   model?: string
+  modelName?: string
+  animation?: string
 }
 
 interface StepConfigurationProps {
@@ -19,11 +21,13 @@ interface StepConfigurationProps {
   selectedIndex?: number | null
   onSelect?: (index: number) => void
   onUpdate?: (index: number, patch: Partial<Step>) => void
+  onUnassign?: (index: number) => void
   onRemove?: (index: number) => void
   isSaving?: boolean
+  assets?: Array<{ id: string; name?: string; originalFilename?: string; metadata?: any }>
 }
 
-export default function StepConfiguration({ steps = [], selectedIndex = null, onSelect, onUpdate, onRemove, isSaving = false }: StepConfigurationProps) {
+export default function StepConfiguration({ steps = [], selectedIndex = null, onSelect, onUpdate, onUnassign, onRemove, isSaving = false, assets = [] }: StepConfigurationProps) {
   const selectedStep = selectedIndex === null ? null : steps[selectedIndex]
 
   return (
@@ -37,7 +41,13 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
               <div
                 key={step.id}
                 className={`bg-card text-card-foreground rounded-lg p-4 border ${selectedIndex === idx ? 'ring-1 ring-ring shadow-sm border-border' : 'border-border'} hover:shadow-md transition-shadow cursor-pointer`}
-                onClick={() => onSelect && onSelect(idx)}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement | null
+                  // If the click originated from an interactive control (input, textarea, button, select, a),
+                  // don't treat it as a card-select click so typing/focus works naturally.
+                  if (target && target.closest('input, textarea, button, select, a')) return
+                  onSelect && onSelect(idx)
+                }}
               >
                 <div className="flex gap-4">
 
@@ -70,6 +80,7 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
                       value={step.content}
                       onChange={(e) => onUpdate && onUpdate(idx, { content: e.target.value })}
                       onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
                       placeholder="type step content here..."
                       disabled={isSaving}
                       className="w-full p-3 mt-2 border rounded-md bg-transparent text-foreground placeholder:text-muted-foreground min-h-[160px] resize-none text-xs disabled:opacity-50"
@@ -84,13 +95,14 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
                             </div>
 
                             <div className="text-left">
-                              <div className="font-medium text-foreground">{step.model}</div>
+                              <div className="font-medium text-foreground">{(step as any).modelName ?? step.model}</div>
                             </div>
 
                             <div className="ml-auto">
                               <Button
                                 onClick={(e) => {
                                   e.stopPropagation()
+                                  if (onUnassign) return onUnassign(idx)
                                   onUpdate && onUpdate(idx, { model: undefined })
                                 }}
                                 variant="ghost"
@@ -109,6 +121,59 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
 
                             <div className="text-left">
                               <div className="font-medium text-foreground">3D Model</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Animation slot (mirrors the 3D model slot styling) */}
+                    <div className="mt-3 flex items-start text-sm text-muted-foreground">
+                      <div className="flex-shrink-0 w-full h-10 bg-muted rounded-md overflow-hidden flex items-center justify-between text-xs text-muted-foreground px-2">
+                        {step.model ? (
+                          (() => {
+                            const asset = (assets || []).find((a) => a.id === step.model)
+                            const animations = asset?.metadata?.animations || []
+                            return (
+                              <div className="flex items-center gap-3 w-full">
+                                <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-md">
+                                  <Play className="w-4 h-4 text-muted-foreground" />
+                                </div>
+
+                                <div className="text-left w-full">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button onClick={(e) => e.stopPropagation()} variant="ghost" size="sm" className="w-full justify-between px-2 hover:bg-accent/5">
+                                        <div className="flex items-center">
+                                          <span className="text-left">{(step as any).animation || '(none)'}</span>
+                                        </div>
+                                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+
+                                    <DropdownMenuContent sideOffset={6} align="start">
+                                      <DropdownMenuItem onSelect={() => { onUpdate && onUpdate(idx, { animation: '' }) }}>
+                                        (none)
+                                      </DropdownMenuItem>
+                                      {animations.map((a: any, i: number) => (
+                                        <DropdownMenuItem key={i} onSelect={() => { onUpdate && onUpdate(idx, { animation: a.name }) }}>
+                                          {a.name || `clip-${i}`}
+                                        </DropdownMenuItem>
+                                      ))}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </div>
+                            )
+                          })()
+                        ) : (
+                          <div className="flex items-center gap-0 w-full">
+                            <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-md">
+                              <Box className="w-4 h-4 text-muted-foreground" />
+                            </div>
+
+                            <div className="text-left">
+                              <div className="font-medium text-foreground">Animation</div>
                             </div>
                           </div>
                         )}

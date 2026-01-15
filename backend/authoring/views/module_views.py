@@ -9,7 +9,7 @@ from authoring.serializers.module_serializers import ModuleSerializer, StepSeria
 from authoring.services.publish_service import publish_module
 
 
-class ModuleCreateView(generics.CreateAPIView):
+class ModuleCreateView(generics.ListCreateAPIView):
     queryset = Module.objects.all()
     serializer_class = ModuleSerializer
 

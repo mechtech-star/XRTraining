@@ -21,7 +21,11 @@ class AssetUploadView(generics.CreateAPIView):
             print("[AssetUpload] request.FILES keys:", list(request.FILES.keys()))
         except Exception:
             print("[AssetUpload] failed to inspect request data/files")
-        # Proceed with normal CreateAPIView behavior (will return serializer errors if any)
+        # Perform explicit serializer validation to capture and log errors
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print("[AssetUpload] serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         return super().create(request, *args, **kwargs)
 
 
@@ -45,4 +49,10 @@ class StepAssetAssignView(APIView):
 
 class StepAssetDeleteView(generics.DestroyAPIView):
     queryset = StepAsset.objects.all()
-    lookup_field = "id"
+    lookup_field = "pk"
+
+
+class AssetDeleteView(generics.DestroyAPIView):
+    """Delete an uploaded Asset by UUID."""
+    queryset = Asset.objects.all()
+    lookup_field = "pk"
