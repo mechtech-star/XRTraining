@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '../../components/ui/button'
 import {
   Dialog,
@@ -13,11 +13,82 @@ import {
 } from '../../components/ui/dialog'
 import AssetSidebar from '../../components/pagecomponents/asset-sidebar'
 import Header from '../../components/pagecomponents/header'
+import { apiClient } from '../../lib/api'
+
+interface Asset {
+  id: string
+  name: string
+  type: string
+  url: string
+  uploadedAt: string
+}
 
 export default function HomeDevelop() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [moduleName, setModuleName] = useState('')
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Load assets on mount
+    let mounted = true
+    ;(async () => {
+      try {
+        const list = await apiClient.getAssets()
+        if (!mounted) return
+        setAssets(list)
+      } catch (err) {
+        console.warn('Failed to fetch assets:', err)
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const handleCreateModule = async (name: string) => {
+    try {
+      const newModule = await apiClient.createModule(name)
+      navigate(`/develop/createmodule/${encodeURIComponent(name)}?id=${newModule.id}`)
+      setOpen(false)
+      setModuleName('')
+    } catch (error) {
+      console.error('Failed to create module:', error)
+      alert(`Failed to create module: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleAssetUpload = async (files: FileList | File[]) => {
+    setUploadError(null)
+    const fileList = Array.from(files)
+    const gltfFiles = fileList.filter((f) => f.name.endsWith('.glb') || f.name.endsWith('.gltf'))
+
+    if (gltfFiles.length === 0) {
+      setUploadError('Only .glb and .gltf files are supported')
+      return
+    }
+
+    setIsLoadingAssets(true)
+    try {
+      for (const file of gltfFiles) {
+        await apiClient.uploadAsset(file, 'gltf')
+      }
+      // Reload assets when backend provides list endpoint
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error'
+      setUploadError(`Upload failed: ${msg}`)
+      console.error('Asset upload error:', error)
+    } finally {
+      setIsLoadingAssets(false)
+    }
+  }
+
+  const handleDeleteAsset = async (assetId: string) => {
+    // Backend delete endpoint will be implemented
+    console.log('Delete asset:', assetId)
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -51,9 +122,7 @@ export default function HomeDevelop() {
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 if (moduleName.trim()) {
-                                  navigate(`createmodule/${encodeURIComponent(moduleName.trim())}`)
-                                  setOpen(false)
-                                  setModuleName('')
+                                  handleCreateModule(moduleName.trim())
                                 }
                               }
                             }}
@@ -70,9 +139,7 @@ export default function HomeDevelop() {
                           <Button
                             onClick={() => {
                               if (moduleName && moduleName.trim()) {
-                                navigate(`createmodule/${encodeURIComponent(moduleName.trim())}`)
-                                setOpen(false)
-                                setModuleName('')
+                                handleCreateModule(moduleName.trim())
                               }
                             }}
                             className="px-4 py-2"
@@ -94,17 +161,17 @@ export default function HomeDevelop() {
 
             <div className="col-span-1 lg:col-span-3 p-2 bg-background overflow-hidden">
               <div className="h-full">
+                {uploadError && (
+                  <div className="mb-2 p-2 bg-red-100 text-red-700 rounded text-sm">
+                    {uploadError}
+                  </div>
+                )}
                 <AssetSidebar
-                  models={models}
+                  models={assets}
                   showAssign={false}
-                  onDelete={(id) => {
-                    console.log('Deleted model:', id)
-                  }}
-                  onUpload={(files) => {
-                    const list = Array.from(files as FileList)
-                    console.log('Uploaded files:', list.map((f) => f.name))
-                    // TODO: implement actual upload logic (API, storage, etc.)
-                  }}
+                  isLoading={isLoadingAssets}
+                  onDelete={handleDeleteAsset}
+                  onUpload={handleAssetUpload}
                 />
               </div>
             </div>
@@ -114,10 +181,3 @@ export default function HomeDevelop() {
     </main>
   )
 }
-
-// Simple sample models for the sidebar (could be fetched from API)
-const models = [
-  { id: 'mdl-001', name: 'Robot Arm', uploadedAt: '2026-01-10T14:30:00Z' },
-  { id: 'mdl-002', name: 'Office Desk', uploadedAt: '2026-01-12T09:15:00Z' },
-  { id: 'mdl-003', name: 'Plant Sansevieria', uploadedAt: '2026-01-13T16:45:00Z' },
-]

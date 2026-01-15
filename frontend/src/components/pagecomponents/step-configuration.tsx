@@ -20,9 +20,10 @@ interface StepConfigurationProps {
   onSelect?: (index: number) => void
   onUpdate?: (index: number, patch: Partial<Step>) => void
   onRemove?: (index: number) => void
+  isSaving?: boolean
 }
 
-export default function StepConfiguration({ steps = [], selectedIndex = null, onSelect, onUpdate, onRemove }: StepConfigurationProps) {
+export default function StepConfiguration({ steps = [], selectedIndex = null, onSelect, onUpdate, onRemove, isSaving = false }: StepConfigurationProps) {
   const selectedStep = selectedIndex === null ? null : steps[selectedIndex]
 
   return (
@@ -70,7 +71,8 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
                       onChange={(e) => onUpdate && onUpdate(idx, { content: e.target.value })}
                       onClick={(e) => e.stopPropagation()}
                       placeholder="type step content here..."
-                      className="w-full p-3 mt-2 border rounded-md bg-transparent text-foreground placeholder:text-muted-foreground min-h-[160px] resize-none text-xs"
+                      disabled={isSaving}
+                      className="w-full p-3 mt-2 border rounded-md bg-transparent text-foreground placeholder:text-muted-foreground min-h-[160px] resize-none text-xs disabled:opacity-50"
                     />
 
                     <div className="mt-3 flex items-start text-sm text-muted-foreground">

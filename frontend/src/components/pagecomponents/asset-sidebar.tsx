@@ -32,9 +32,10 @@ interface AssetSidebarProps {
   onDelete?: (modelId: string) => void
   onUpload?: (files: FileList | File[]) => void
   showAssign?: boolean
+  isLoading?: boolean
 }
 
-export default function AssetSidebar({ models, onAssignModel, onDelete, onUpload, showAssign = true }: AssetSidebarProps) {
+export default function AssetSidebar({ models, onAssignModel, onDelete, onUpload, showAssign = true, isLoading = false }: AssetSidebarProps) {
   function formatUploaded(dateStr?: string) {
     if (!dateStr) return '—'
     const d = new Date(dateStr)
@@ -114,9 +115,9 @@ export default function AssetSidebar({ models, onAssignModel, onDelete, onUpload
                 <div className="text-xs text-muted-foreground text-center">or click Upload</div>
 
                 <div className="mt-2">
-                  <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onTriggerUpload() }} className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); onTriggerUpload() }} className="flex items-center gap-2" disabled={isLoading}>
                     <UploadCloud className="w-4 h-4" />
-                    Upload
+                    {isLoading ? 'Uploading...' : 'Upload'}
                   </Button>
                 </div>
 
