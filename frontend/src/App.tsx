@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import ModeSelection from './pages/mode-selection'
-import HomeDevelop from './pages/develop/homedevelop'
 import HomeOperate from './pages/operate/homeoperate'
+import Develop from './pages/develop/indexdevelop'
 import './App.css'
 
 function App() {
@@ -9,7 +9,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<ModeSelection />} />
-        <Route path="/homedevelop" element={<HomeDevelop />} />
+        <Route path="/develop/*" element={<Develop />} />
         <Route path="/homeoperate" element={<HomeOperate />} />
       </Routes>
     </Router>
