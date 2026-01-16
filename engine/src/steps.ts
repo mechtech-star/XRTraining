@@ -8,50 +8,6 @@ export type PanelOptions = {
     rotationY?: number;
 };
 
-export const STEPS: Record<
-    string,
-    { ui: string; panelOptions: PanelOptions | null }
-> = {
-    step0Panel: {
-        ui: "./ui/step-0.json",
-        panelOptions: {
-            maxHeight: PANEL_CONFIG.maxHeight,
-            maxWidth: PANEL_CONFIG.maxWidth,
-            screenSpace: PANEL_CONFIG.screenSpace,
-            position: PANEL_CONFIG.position,
-            rotationY: PANEL_CONFIG.rotationY,
-        },
-    },
-    step1Panel: {
-        ui: "./ui/step-1.json",
-        panelOptions: {
-            maxHeight: PANEL_CONFIG.maxHeight,
-            maxWidth: PANEL_CONFIG.maxWidth,
-            screenSpace: PANEL_CONFIG.screenSpace,
-            position: PANEL_CONFIG.position,
-            rotationY: PANEL_CONFIG.rotationY,
-        },
-    },
-    step2Panel: {
-        ui: "./ui/step-2.json",
-        panelOptions: {
-            maxHeight: 0.8,
-            maxWidth: 1.6,
-            screenSpace: { top: "20px", right: "20px", height: "40%" },
-            position: PANEL_CONFIG.position,
-            rotationY: PANEL_CONFIG.rotationY,
-        },
-    },
-};
-
-export const ASSET_ANIMATIONS: Record<string, Record<string, string | null>> = {
-    cube: {
-        step0Panel: null,
-        step1Panel: "cubeanimation1",
-        step2Panel: "cubeanimation2",
-    },
-};
-
 // Button action configuration per step. Keys are element ids inside the
 // UIKit document. Action types:
 // - { action: 'goto', target: '<stepKey>' }
@@ -62,18 +18,78 @@ export type ButtonAction =
     | { action: "launchXR" }
     | { action: "launchOrGoto"; target: string };
 
-export const BUTTON_ACTIONS: Record<string, Record<string, ButtonAction>> = {
-    step0Panel: {
-        "xr-button": { action: "launchOrGoto", target: "step1Panel" },
-    },
-    step1Panel: {
-        "next-button": { action: "goto", target: "step2Panel" },
-        "back-button": { action: "goto", target: "step0Panel" },
-    },
-    step2Panel: {
-        "next-button": { action: "goto", target: "step0Panel" },
-        "back-button": { action: "goto", target: "step1Panel" },
-    },
+export type Step = {
+    id: string;
+    stepNumber: number;
+    ui: string | { uiUrl: string };
+    panelOptions: PanelOptions | null;
+    assets: Record<string, { animation: string | null }>;
+    buttons: Record<string, ButtonAction>;
 };
+
+export const STEPS: Step[] = [
+    {
+        id: 'step1Panel',
+        stepNumber: 0,
+        ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-1.json" },
+        panelOptions: {
+            maxHeight: PANEL_CONFIG.maxHeight,
+            maxWidth: PANEL_CONFIG.maxWidth,
+            screenSpace: PANEL_CONFIG.screenSpace,
+            position: PANEL_CONFIG.position,
+            rotationY: PANEL_CONFIG.rotationY,
+        },
+        assets: {
+            model: { animation: "cubeanimation1" },
+            robot: { animation: null },
+        },
+        buttons: {
+            "next-button": { action: "goto", target: "step2Panel" },
+            "back-button": { action: "goto", target: "step2Panel" },
+        },
+    },
+    {
+        id: 'step2Panel',
+        stepNumber: 1,
+        ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-2.json" },
+        panelOptions: {
+            maxHeight: 0.8,
+            maxWidth: 1.6,
+            screenSpace: { top: "20px", right: "20px", height: "40%" },
+            position: PANEL_CONFIG.position,
+            rotationY: PANEL_CONFIG.rotationY,
+        },
+        assets: {
+            model: { animation: "cubeanimation2" },
+            robot: { animation: null },
+        },
+        buttons: {
+            "next-button": { action: "goto", target: "step3Panel" },
+            "back-button": { action: "goto", target: "step1Panel" },
+        },
+    },
+    {
+        id: 'step3Panel',
+        stepNumber: 3,
+        ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-3.json" },
+        panelOptions: {
+            maxHeight: 0.8,
+            maxWidth: 1.6,
+            screenSpace: { top: "20px", right: "20px", height: "40%" },
+            position: PANEL_CONFIG.position,
+            rotationY: PANEL_CONFIG.rotationY,
+        },
+        assets: {
+            model: { animation: "cubeanimation2" },
+            robot: { animation: null },
+        },
+        buttons: {
+            "next-button": { action: "goto", target: "step1Panel" },
+            "back-button": { action: "goto", target: "step2Panel" },
+        },
+    },
+];
+
+export const TOTAL_STEPS = STEPS.length;
 
 export default STEPS;

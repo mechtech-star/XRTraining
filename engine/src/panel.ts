@@ -10,17 +10,19 @@ import {
   Vector3,
 } from "@iwsdk/core";
 import { PANEL_CONFIG } from "./panelConfig.js";
-import { STEPS, BUTTON_ACTIONS } from "./steps.js";
+import { STEPS } from "./steps.js";
 // Build queries dynamically from STEPS so the number of steps can change
 const PANEL_QUERIES: any = (() => {
   const q: Record<string, any> = {};
   // a generic panels query to find any PanelUI
   q.panels = { required: [PanelUI] };
   // per-step queries (e.g. step0Panel, step1Panel, ...)
-  Object.entries(STEPS).forEach(([stepKey, step]) => {
-    q[stepKey] = {
+  STEPS.forEach((step) => {
+    // support either a string config or an object with a uiUrl property
+    const cfg = typeof step.ui === "string" ? step.ui : (step.ui && (step.ui as any).uiUrl ? (step.ui as any).uiUrl : step.ui);
+    q[step.id] = {
       required: [PanelUI, PanelDocument],
-      where: [eq(PanelUI, "config", step.ui)],
+      where: [eq(PanelUI, "config", cfg)],
     };
   });
   return q;
@@ -40,7 +42,8 @@ export class PanelSystem extends createSystem(PANEL_QUERIES) {
         const document = PanelDocument.data.document[entity.index] as UIKitDocument;
         if (!document) return;
 
-        const actions = BUTTON_ACTIONS[stepKey] || {};
+        const step = STEPS.find(s => s.id === stepKey);
+        const actions = step?.buttons || {};
         Object.keys(actions).forEach((id) => {
           const el = document.getElementById(id) as any | null;
           if (!el) return;
@@ -59,13 +62,15 @@ export class PanelSystem extends createSystem(PANEL_QUERIES) {
             }
             if (action.action === "goto" || action.action === "launchOrGoto") {
               const target = (action as any).target as string;
-              const step = STEPS[target];
-              if (!step) return;
-              const opts = step.panelOptions;
+              const targetStep = STEPS.find(s => s.id === target);
+              if (!targetStep) return;
+              const opts = targetStep.panelOptions;
+              // prefer a uiUrl property when present
+              const targetCfg = typeof targetStep!.ui === "string" ? targetStep!.ui : ((targetStep!.ui as any)?.uiUrl ?? targetStep!.ui);
               const newPanelEntity = this.world
                 .createTransformEntity()
                 .addComponent(PanelUI, {
-                  config: step.ui,
+                  config: targetCfg,
                   maxHeight: opts?.maxHeight ?? PANEL_CONFIG.maxHeight,
                   maxWidth: opts?.maxWidth ?? PANEL_CONFIG.maxWidth,
                 })
@@ -82,8 +87,8 @@ export class PanelSystem extends createSystem(PANEL_QUERIES) {
     };
 
     // wire all steps dynamically
-    Object.keys(STEPS).forEach((stepKey) => {
-      wireStep(stepKey, (this.queries as any)[stepKey]);
+    STEPS.forEach((step) => {
+      wireStep(step.id, (this.queries as any)[step.id]);
     });
   }
 

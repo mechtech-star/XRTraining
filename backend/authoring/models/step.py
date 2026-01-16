@@ -10,6 +10,13 @@ class Step(models.Model):
     title = models.CharField(max_length=200)
     body = models.TextField()
     animation = models.CharField(max_length=200, blank=True, null=True)
+    ui_template = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        default="content",
+        help_text="UIKitML template name for this step (e.g., 'content', 'showcase')"
+    )
     required = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

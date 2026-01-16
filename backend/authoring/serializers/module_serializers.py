@@ -15,7 +15,7 @@ class StepSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Step
-        fields = ["id", "module", "order_index", "title", "body", "animation", "required", "created_at", "updated_at", "step_assets"]
+        fields = ["id", "module", "order_index", "title", "body", "animation", "ui_template", "required", "created_at", "updated_at", "step_assets"]
         read_only_fields = ["created_at", "updated_at", "module", "order_index"]
 
 

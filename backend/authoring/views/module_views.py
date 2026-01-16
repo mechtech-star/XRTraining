@@ -83,7 +83,19 @@ class ModulePublishView(APIView):
             published = publish_module(module)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"id": str(published.id), "version": published.version}, status=status.HTTP_201_CREATED)
+        # If the publish service attached a json_url, convert to absolute URL for response
+        json_url = getattr(published, "json_url", None)
+        if json_url:
+            if json_url.startswith("http://") or json_url.startswith("https://"):
+                url = json_url
+            else:
+                url = request.build_absolute_uri(json_url)
+        else:
+            url = None
+        resp = {"id": str(published.id), "version": published.version}
+        if url:
+            resp["url"] = url
+        return Response(resp, status=status.HTTP_201_CREATED)
 
 
 class ModuleRuntimeView(APIView):

@@ -7,38 +7,40 @@ import {
     eq,
     AnimationMixer,
 } from "@iwsdk/core";
-import { ASSET_ANIMATIONS, STEPS } from "./steps.js";
+import { STEPS } from "./steps.js";
 
-export const Cube = createComponent("Cube", {});
+export const Model = createComponent("Model", {});
 
-// Build queries dynamically from STEPS so CubeSystem reacts to any number of steps
-const CUBE_QUERIES: any = (() => {
+// Build queries dynamically from STEPS so ModelSystem reacts to any number of steps
+const MODEL_QUERIES: any = (() => {
     const q: Record<string, any> = {};
     q.panels = { required: [PanelUI] };
-    Object.entries(STEPS).forEach(([stepKey, step]) => {
-        q[stepKey] = {
+    STEPS.forEach((step) => {
+        // Support ui being a string path or an object with uiUrl
+        const cfg = typeof step.ui === "string" ? step.ui : ((step.ui as any)?.uiUrl ?? step.ui);
+        q[step.id] = {
             required: [PanelUI, PanelDocument],
-            where: [eq(PanelUI, "config", step.ui)],
+            where: [eq(PanelUI, "config", cfg)],
         };
     });
     return q;
 })();
 
-export class CubeSystem extends createSystem(CUBE_QUERIES) {
+export class ModelSystem extends createSystem(MODEL_QUERIES) {
     private mixer?: AnimationMixer;
     private actions = new Map<string, any>();
-    private cubeObject?: any;
+    private modelObject?: any;
 
     init() {
-        const gltf = AssetManager.getGLTF("cube");
+        const gltf = AssetManager.getGLTF("model");
         if (!gltf) return;
 
         const scene = gltf.scene;
         // start hidden by default
         scene.visible = false;
-        this.cubeObject = scene;
+        this.modelObject = scene;
 
-        this.world.createTransformEntity(scene).addComponent(Cube);
+        this.world.createTransformEntity(scene).addComponent(Model);
 
         this.mixer = new AnimationMixer(scene as any);
         if (gltf.animations) {
@@ -48,21 +50,22 @@ export class CubeSystem extends createSystem(CUBE_QUERIES) {
             });
         }
 
-        // Subscribe to every step defined in STEPS and play/hide based on ASSET_ANIMATIONS
-        Object.keys(STEPS).forEach((stepKey) => {
+        // Subscribe to every step defined in STEPS and play/hide based on assets
+        STEPS.forEach((step) => {
+            const stepKey = step.id;
             const q = (this.queries as any)[stepKey];
             if (!q) return;
-            const actionNameForStep = ASSET_ANIMATIONS.cube?.[stepKey] ?? null;
+            const actionNameForStep = step.assets.model?.animation ?? null;
             q.subscribe("qualify", () => {
-                if (!this.cubeObject) return;
+                if (!this.modelObject) return;
                 if (!actionNameForStep) {
                     // no animation assigned for this step => hide and stop
-                    this.cubeObject.visible = false;
+                    this.modelObject.visible = false;
                     this.actions.forEach((a) => a.stop());
                     return;
                 }
                 // show and play the named action if available
-                this.cubeObject.visible = true;
+                this.modelObject.visible = true;
                 const action = this.actions.get(actionNameForStep);
                 if (action) {
                     this.actions.forEach((a, name) => {
