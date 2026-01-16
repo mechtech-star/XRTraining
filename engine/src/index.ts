@@ -16,10 +16,7 @@ import { EnvironmentType, LocomotionEnvironment } from "@iwsdk/core";
 
 import { PanelSystem } from "./panel.js";
 import { PANEL_CONFIG } from "./panelConfig.js";
-import { STEPS } from "./steps.js";
-
-// Robot and RobotSystem removed — not used
-import { ModelSystem } from "./model.js";
+import { STEPS, ModelSystem, MODEL_URL } from "./steps.js";
 
 const assets: AssetManifest = {
   chimeSound: {
@@ -38,7 +35,7 @@ const assets: AssetManifest = {
     priority: "critical",
   },
   model: {
-    url: "./gltf/cube/cube.glb",
+    url: MODEL_URL,
     type: AssetType.GLTF,
     priority: "critical",
   },

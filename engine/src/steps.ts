@@ -1,4 +1,8 @@
 import { PANEL_CONFIG } from "./panelConfig.js";
+import { createComponent, createSystem, AssetManager, PanelUI, PanelDocument, eq, AnimationMixer } from "@iwsdk/core";
+
+// Centralize model asset path here so other modules can reference it.
+export const MODEL_URL = "./gltf/cube/cube.glb";
 
 export type PanelOptions = {
     maxHeight?: number;
@@ -32,64 +36,125 @@ export const STEPS: Step[] = [
         id: 'step1Panel',
         stepNumber: 0,
         ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-1.json" },
-        panelOptions: {
-            maxHeight: PANEL_CONFIG.maxHeight,
-            maxWidth: PANEL_CONFIG.maxWidth,
-            screenSpace: PANEL_CONFIG.screenSpace,
-            position: PANEL_CONFIG.position,
-            rotationY: PANEL_CONFIG.rotationY,
-        },
+        panelOptions: PANEL_CONFIG,
         assets: {
             model: { animation: "cubeanimation1" },
-            robot: { animation: null },
         },
-        buttons: {
-            "next-button": { action: "goto", target: "step2Panel" },
-            "back-button": { action: "goto", target: "step2Panel" },
-        },
+        buttons: {} as Record<string, ButtonAction>,
     },
     {
         id: 'step2Panel',
         stepNumber: 1,
         ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-2.json" },
-        panelOptions: {
-            maxHeight: 0.8,
-            maxWidth: 1.6,
-            screenSpace: { top: "20px", right: "20px", height: "40%" },
-            position: PANEL_CONFIG.position,
-            rotationY: PANEL_CONFIG.rotationY,
-        },
+        panelOptions: PANEL_CONFIG,
         assets: {
             model: { animation: "cubeanimation2" },
-            robot: { animation: null },
         },
-        buttons: {
-            "next-button": { action: "goto", target: "step3Panel" },
-            "back-button": { action: "goto", target: "step1Panel" },
-        },
+        buttons: {} as Record<string, ButtonAction>,
     },
     {
         id: 'step3Panel',
         stepNumber: 3,
         ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-3.json" },
-        panelOptions: {
-            maxHeight: 0.8,
-            maxWidth: 1.6,
-            screenSpace: { top: "20px", right: "20px", height: "40%" },
-            position: PANEL_CONFIG.position,
-            rotationY: PANEL_CONFIG.rotationY,
-        },
+        panelOptions: PANEL_CONFIG,
         assets: {
             model: { animation: "cubeanimation2" },
-            robot: { animation: null },
         },
-        buttons: {
-            "next-button": { action: "goto", target: "step1Panel" },
-            "back-button": { action: "goto", target: "step2Panel" },
-        },
+        buttons: {} as Record<string, ButtonAction>,
     },
+    {
+        id: 'step4Panel',
+        stepNumber: 4,
+        ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-4.json" },
+        panelOptions: PANEL_CONFIG,
+        assets: {
+            model: { animation: "cubeanimation2" },
+        },
+        buttons: {} as Record<string, ButtonAction>,
+    },
+
 ];
+
+// Auto-generate next/back buttons for each step in a single place.
+for (let i = 0; i < STEPS.length; i++) {
+    const nextIndex = (i + 1) % STEPS.length;
+    const prevIndex = (i - 1 + STEPS.length) % STEPS.length;
+    STEPS[i].buttons = {
+        "next-button": { action: "goto", target: STEPS[nextIndex].id },
+        "back-button": { action: "goto", target: STEPS[prevIndex].id },
+    };
+}
 
 export const TOTAL_STEPS = STEPS.length;
 
 export default STEPS;
+
+// --- ModelSystem moved here so it can derive queries directly from `STEPS` ---
+export const Model = createComponent("Model", {});
+
+// Build queries dynamically from STEPS so ModelSystem reacts to any number of steps
+const MODEL_QUERIES: any = (() => {
+    const q: Record<string, any> = {};
+    q.panels = { required: [PanelUI] };
+    STEPS.forEach((step) => {
+        const cfg = typeof step.ui === "string" ? step.ui : ((step.ui as any)?.uiUrl ?? step.ui);
+        q[step.id] = {
+            required: [PanelUI, PanelDocument],
+            where: [eq(PanelUI, "config", cfg)],
+        };
+    });
+    return q;
+})();
+
+export class ModelSystem extends createSystem(MODEL_QUERIES) {
+    private mixer?: AnimationMixer;
+    private actions = new Map<string, any>();
+    private modelObject?: any;
+
+    init() {
+        const gltf = AssetManager.getGLTF("model");
+        if (!gltf) return;
+
+        const scene = gltf.scene;
+        scene.visible = false;
+        this.modelObject = scene;
+
+        this.world.createTransformEntity(scene).addComponent(Model);
+
+        this.mixer = new AnimationMixer(scene as any);
+        if (gltf.animations) {
+            gltf.animations.forEach((clip: any) => {
+                const action = this.mixer!.clipAction(clip);
+                this.actions.set(clip.name, action);
+            });
+        }
+
+        STEPS.forEach((step) => {
+            const stepKey = step.id;
+            const q = (this.queries as any)[stepKey];
+            if (!q) return;
+            const actionNameForStep = step.assets.model?.animation ?? null;
+            q.subscribe("qualify", () => {
+                if (!this.modelObject) return;
+                if (!actionNameForStep) {
+                    this.modelObject.visible = false;
+                    this.actions.forEach((a) => a.stop());
+                    return;
+                }
+                this.modelObject.visible = true;
+                const action = this.actions.get(actionNameForStep);
+                if (action) {
+                    this.actions.forEach((a, name) => {
+                        if (name !== actionNameForStep) a.stop();
+                    });
+                    action.reset();
+                    action.play();
+                }
+            });
+        });
+    }
+
+    update(delta: number) {
+        if (this.mixer) this.mixer.update(delta);
+    }
+}
