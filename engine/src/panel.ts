@@ -8,7 +8,9 @@ import {
   UIKit,
   Interactable,
   ScreenSpace,
+  Vector3,
 } from "@iwsdk/core";
+import { PANEL_CONFIG } from "./panelConfig.js";
 
 export class PanelSystem extends createSystem({
   step0Panel: {
@@ -23,8 +25,15 @@ export class PanelSystem extends createSystem({
     required: [PanelUI, PanelDocument],
     where: [eq(PanelUI, "config", "./ui/step-2.json")],
   },
+  panels: {
+    required: [PanelUI],
+  },
 }) {
+  private lookAtTarget!: Vector3;
+  private vec3!: Vector3;
   init() {
+    this.lookAtTarget = new Vector3();
+    this.vec3 = new Vector3();
     this.queries.step0Panel.subscribe("qualify", (entity) => {
       const document = PanelDocument.data.document[
         entity.index
@@ -44,16 +53,17 @@ export class PanelSystem extends createSystem({
             .createTransformEntity()
             .addComponent(PanelUI, {
               config: "./ui/step-1.json",
-              maxHeight: 0.8,
-              maxWidth: 1.6,
+              maxHeight: PANEL_CONFIG.maxHeight,
+              maxWidth: PANEL_CONFIG.maxWidth,
             })
             .addComponent(Interactable)
-            .addComponent(ScreenSpace, {
-              top: "20px",
-              left: "20px",
-              height: "40%",
-            });
-          newPanelEntity.object3D!.position.set(0, 1.29, -1.9);
+            .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
+          newPanelEntity.object3D!.position.set(
+            PANEL_CONFIG.position.x,
+            PANEL_CONFIG.position.y,
+            PANEL_CONFIG.position.z,
+          );
+          newPanelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
           entity.destroy();
         }
       });
@@ -74,16 +84,17 @@ export class PanelSystem extends createSystem({
           .createTransformEntity()
           .addComponent(PanelUI, {
             config: "./ui/step-2.json",
-            maxHeight: 0.8,
-            maxWidth: 1.6,
+            maxHeight: PANEL_CONFIG.maxHeight,
+            maxWidth: PANEL_CONFIG.maxWidth,
           })
           .addComponent(Interactable)
-          .addComponent(ScreenSpace, {
-            top: "20px",
-            left: "20px",
-            height: "40%",
-          });
-        newPanelEntity.object3D!.position.set(0, 1.29, -1.9);
+          .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
+        newPanelEntity.object3D!.position.set(
+          PANEL_CONFIG.position.x,
+          PANEL_CONFIG.position.y,
+          PANEL_CONFIG.position.z,
+        );
+        newPanelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
         entity.destroy();
       });
 
@@ -94,16 +105,17 @@ export class PanelSystem extends createSystem({
           .createTransformEntity()
           .addComponent(PanelUI, {
             config: "./ui/step-0.json",
-            maxHeight: 0.8,
-            maxWidth: 1.6,
+            maxHeight: PANEL_CONFIG.maxHeight,
+            maxWidth: PANEL_CONFIG.maxWidth,
           })
           .addComponent(Interactable)
-          .addComponent(ScreenSpace, {
-            top: "20px",
-            left: "20px",
-            height: "40%",
-          });
-        newPanelEntity.object3D!.position.set(0, 1.29, -1.9);
+          .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
+        newPanelEntity.object3D!.position.set(
+          PANEL_CONFIG.position.x,
+          PANEL_CONFIG.position.y,
+          PANEL_CONFIG.position.z,
+        );
+        newPanelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
         entity.destroy();
       });
     });
@@ -130,10 +142,11 @@ export class PanelSystem extends createSystem({
           .addComponent(Interactable)
           .addComponent(ScreenSpace, {
             top: "20px",
-            left: "20px",
+            right: "20px",
             height: "40%",
           });
-        newPanelEntity.object3D!.position.set(0, 1.29, -1.9);
+        newPanelEntity.object3D!.position.set(1.2, 1.29, -1.0);
+        newPanelEntity.object3D!.rotateY(-1.5);
         entity.destroy();
       });
 
@@ -144,19 +157,30 @@ export class PanelSystem extends createSystem({
           .createTransformEntity()
           .addComponent(PanelUI, {
             config: "./ui/step-1.json",
-            maxHeight: 0.8,
-            maxWidth: 1.6,
+            maxHeight: PANEL_CONFIG.maxHeight,
+            maxWidth: PANEL_CONFIG.maxWidth,
           })
           .addComponent(Interactable)
-          .addComponent(ScreenSpace, {
-            top: "20px",
-            left: "20px",
-            height: "40%",
-          });
-        newPanelEntity.object3D!.position.set(0, 1.29, -1.9);
+          .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
+        newPanelEntity.object3D!.position.set(
+          PANEL_CONFIG.position.x,
+          PANEL_CONFIG.position.y,
+          PANEL_CONFIG.position.z,
+        );
+        newPanelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
         entity.destroy();
       });
     });
+  }
 
+  update() {
+    // Make any PanelUI entities face the user's head (preserve their local Y)
+    this.queries.panels.entities.forEach((entity) => {
+      this.player.head.getWorldPosition(this.lookAtTarget);
+      const obj = entity.object3D!;
+      obj.getWorldPosition(this.vec3);
+      this.lookAtTarget.y = this.vec3.y;
+      obj.lookAt(this.lookAtTarget);
+    });
   }
 }

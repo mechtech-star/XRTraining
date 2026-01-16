@@ -23,6 +23,7 @@ import {
 import { EnvironmentType, LocomotionEnvironment } from "@iwsdk/core";
 
 import { PanelSystem } from "./panel.js";
+import { PANEL_CONFIG } from "./panelConfig.js";
 
 import { Robot } from "./robot.js";
 
@@ -91,7 +92,7 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
 
   const { scene: plantMesh } = AssetManager.getGLTF("plantSansevieria")!;
 
-  plantMesh.position.set(1.2, 0.85, -1.8);
+  plantMesh.position.set(-1.8, 0.2, 0.0);
 
   world
     .createTransformEntity(plantMesh)
@@ -101,11 +102,8 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     });
 
   const { scene: robotMesh } = AssetManager.getGLTF("robot")!;
-  // defaults for AR
-  robotMesh.position.set(-1.2, 0.4, -1.8);
-  robotMesh.scale.setScalar(1);
-
-  robotMesh.position.set(-1.2, 0.95, -1.8);
+  // place robot at ground to the user's left
+  robotMesh.position.set(-1.8, 0.2, 0.3);
   robotMesh.scale.setScalar(0.5);
 
   world
@@ -122,16 +120,17 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
     .createTransformEntity()
     .addComponent(PanelUI, {
       config: "./ui/step-0.json",
-      maxHeight: 0.8,
-      maxWidth: 1.6,
+      maxHeight: PANEL_CONFIG.maxHeight,
+      maxWidth: PANEL_CONFIG.maxWidth,
     })
     .addComponent(Interactable)
-    .addComponent(ScreenSpace, {
-      top: "20px",
-      left: "20px",
-      height: "40%",
-    });
-  panelEntity.object3D!.position.set(0, 1.29, -1.9);
+    .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
+  panelEntity.object3D!.position.set(
+    PANEL_CONFIG.position.x,
+    PANEL_CONFIG.position.y,
+    PANEL_CONFIG.position.z,
+  );
+  panelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
 
   const webxrLogoTexture = AssetManager.getTexture("webxr")!;
   webxrLogoTexture.colorSpace = SRGBColorSpace;

@@ -24,7 +24,25 @@
     text-align: left;
     margin-top: 0.3;
   }
-  
+
+  .step {
+    display: none;
+  }
+
+  .step.active {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .button-row {
+    gap: 2;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2;
+  }
+
   #xr-button {
     width: 100%;
     padding: 1.5;
@@ -39,9 +57,63 @@
     text-align: center;
     cursor: pointer;
   }
+
+  #back-button {
+    width: 100%;
+    padding: 1.5;
+    margin-top: 2;
+    background-color: #fafafa;
+    color: #09090b;
+    border-radius: 1.5;
+    border-width: 0.1;
+    border-color: #e4e4e7;
+    font-size: 2.5;
+    font-weight: medium;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  #next-button {
+    width: 100%;
+    padding: 1.5;
+    margin-top: 2;
+    background-color: #fafafa;
+    color: #09090b;
+    border-radius: 1.5;
+    border-width: 0.1;
+    border-color: #e4e4e7;
+    font-size: 2.5;
+    font-weight: medium;
+    text-align: center;
+    cursor: pointer;
+  }
 </style>
+
 <div class="panel-container">
-  <span class="heading"> Hello, Immersive Web! </span>
-  <span class="sub-heading"> Explore locomotion, grab interactions, spatial UI panel and more - start building for the immersive web with Immersive Web SDK today.</span>
-  <button id="xr-button">Start</button>
+  <!-- Step 0: Initial UI -->
+  <div id="step-0" class="step active">
+    <span class="heading">Hello, Immersive Web!</span>
+    <span class="sub-heading">Explore locomotion, grab interactions, spatial UI panel and more - start building for the immersive web with Immersive Web SDK today.</span>
+    <button id="xr-button">Start</button>
+  </div>
+
+  <!-- Step 1: Content 1 -->
+  <div id="step-1" class="step">
+    <span class="heading">Step 1</span>
+    <span class="sub-heading">Content 1</span>
+    <div class="button-row">
+      <button id="back-button">Back</button>
+      <button id="next-button">Next</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Content 2 -->
+  <div id="step-2" class="step">
+    <span class="heading">Step 2</span>
+    <span class="sub-heading">Content 2</span>
+    <div class="button-row">
+      <button id="back-button">Back</button>
+      <button id="next-button">Next</button>
+    </div>
+  </div>
 </div>
