@@ -52,4 +52,28 @@ export const ASSET_ANIMATIONS: Record<string, Record<string, string | null>> = {
     },
 };
 
+// Button action configuration per step. Keys are element ids inside the
+// UIKit document. Action types:
+// - { action: 'goto', target: '<stepKey>' }
+// - { action: 'launchXR' }
+// - { action: 'launchOrGoto', target: '<stepKey>' } // launch XR if not immersive, otherwise goto
+export type ButtonAction =
+    | { action: "goto"; target: string }
+    | { action: "launchXR" }
+    | { action: "launchOrGoto"; target: string };
+
+export const BUTTON_ACTIONS: Record<string, Record<string, ButtonAction>> = {
+    step0Panel: {
+        "xr-button": { action: "launchOrGoto", target: "step1Panel" },
+    },
+    step1Panel: {
+        "next-button": { action: "goto", target: "step2Panel" },
+        "back-button": { action: "goto", target: "step0Panel" },
+    },
+    step2Panel: {
+        "next-button": { action: "goto", target: "step0Panel" },
+        "back-button": { action: "goto", target: "step1Panel" },
+    },
+};
+
 export default STEPS;

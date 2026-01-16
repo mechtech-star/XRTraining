@@ -29,7 +29,7 @@ import { STEPS } from "./steps.js";
 import { Robot } from "./robot.js";
 
 import { RobotSystem } from "./robot.js";
-import { CubeSystem } from "./cube.js";
+import { CubeSystem } from "./model.js";
 
 const assets: AssetManifest = {
   chimeSound: {
