@@ -240,6 +240,9 @@ def publish_module(module: Module) -> PublishedModule:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
             # Expose a URL path on the published object for callers to use (non-persistent attribute)
             published.json_url = f"{media_url}/published_modules/{filename}"
+            # Save the updated payload (with uiUrl fields) back to the published object
+            published.payload = payload
+            published.save(update_fields=["payload"])
         except Exception:
             # Fail-safe: publishing itself shouldn't fail because of filesystem issues.
             # Errors are logged at higher levels; swallow here to avoid breaking transaction.

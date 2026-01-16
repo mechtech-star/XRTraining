@@ -10,25 +10,27 @@ import {
   Vector3,
 } from "@iwsdk/core";
 import { PANEL_CONFIG } from "./panelConfig.js";
-import { STEPS } from "./steps.js";
-// Build queries dynamically from STEPS so the number of steps can change
-const PANEL_QUERIES: any = (() => {
-  const q: Record<string, any> = {};
-  // a generic panels query to find any PanelUI
-  q.panels = { required: [PanelUI] };
-  // per-step queries (e.g. step0Panel, step1Panel, ...)
-  STEPS.forEach((step) => {
-    // support either a string config or an object with a uiUrl property
-    const cfg = typeof step.ui === "string" ? step.ui : (step.ui && (step.ui as any).uiUrl ? (step.ui as any).uiUrl : step.ui);
-    q[step.id] = {
-      required: [PanelUI, PanelDocument],
-      where: [eq(PanelUI, "config", cfg)],
-    };
-  });
-  return q;
-})();
+import { buildSteps, DEFAULT_STEPS } from "./steps.js";
 
-export class PanelSystem extends createSystem(PANEL_QUERIES) {
+export function createPanelSystem(steps = DEFAULT_STEPS) {
+  // Build queries dynamically from provided steps so the number of steps can change
+  const PANEL_QUERIES: any = (() => {
+    const q: Record<string, any> = {};
+    // a generic panels query to find any PanelUI
+    q.panels = { required: [PanelUI] };
+    // per-step queries (e.g. step0Panel, step1Panel, ...)
+    steps.forEach((step) => {
+      // support either a string config or an object with a uiUrl property
+      const cfg = typeof step.ui === "string" ? step.ui : (step.ui && (step.ui as any).uiUrl ? (step.ui as any).uiUrl : step.ui);
+      q[step.id] = {
+        required: [PanelUI, PanelDocument],
+        where: [eq(PanelUI, "config", cfg)],
+      };
+    });
+    return q;
+  })();
+
+  return class PanelSystem extends createSystem(PANEL_QUERIES) {
   private lookAtTarget!: Vector3;
   private vec3!: Vector3;
 
@@ -42,7 +44,7 @@ export class PanelSystem extends createSystem(PANEL_QUERIES) {
         const document = PanelDocument.data.document[entity.index] as UIKitDocument;
         if (!document) return;
 
-        const step = STEPS.find(s => s.id === stepKey);
+        const step = steps.find(s => s.id === stepKey);
         const actions = step?.buttons || {};
         Object.keys(actions).forEach((id) => {
           const el = document.getElementById(id) as any | null;
@@ -62,7 +64,7 @@ export class PanelSystem extends createSystem(PANEL_QUERIES) {
             }
             if (action.action === "goto" || action.action === "launchOrGoto") {
               const target = (action as any).target as string;
-              const targetStep = STEPS.find(s => s.id === target);
+              const targetStep = steps.find(s => s.id === target);
               if (!targetStep) return;
               const opts = targetStep.panelOptions;
               // prefer a uiUrl property when present
@@ -87,7 +89,7 @@ export class PanelSystem extends createSystem(PANEL_QUERIES) {
     };
 
     // wire all steps dynamically
-    STEPS.forEach((step) => {
+    steps.forEach((step) => {
       wireStep(step.id, (this.queries as any)[step.id]);
     });
   }
@@ -102,4 +104,5 @@ export class PanelSystem extends createSystem(PANEL_QUERIES) {
       obj.lookAt(this.lookAtTarget);
     });
   }
+};
 }

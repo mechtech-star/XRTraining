@@ -2,7 +2,14 @@ import { PANEL_CONFIG } from "./panelConfig.js";
 import { createComponent, createSystem, AssetManager, PanelUI, PanelDocument, eq, AnimationMixer } from "@iwsdk/core";
 
 // Centralize model asset path here so other modules can reference it.
-export const MODEL_URL = "./gltf/cube/cube.glb";
+// Expose a mutable `MODEL_URL` and a setter so runtime can override it.
+export let MODEL_URL = "./gltf/cube/cube.glb";
+export let MODEL_NAME: string | undefined = undefined;
+
+export function setModelUrl(url: string, name?: string) {
+    MODEL_URL = url;
+    MODEL_NAME = name;
+}
 
 export type PanelOptions = {
     maxHeight?: number;
@@ -82,40 +89,43 @@ export function createSteps(moduleId: string = DEFAULT_PUBLISHED_MODULE_ID): Ste
     ];
 }
 
-export const STEPS: Step[] = createSteps();
-
-// Auto-generate next/back buttons for each step in a single place.
-for (let i = 0; i < STEPS.length; i++) {
-    const nextIndex = (i + 1) % STEPS.length;
-    const prevIndex = (i - 1 + STEPS.length) % STEPS.length;
-    STEPS[i].buttons = {
-        "next-button": { action: "goto", target: STEPS[nextIndex].id },
-        "back-button": { action: "goto", target: STEPS[prevIndex].id },
-    };
+export function buildSteps(moduleId: string = DEFAULT_PUBLISHED_MODULE_ID): Step[] {
+    const steps = createSteps(moduleId);
+    for (let i = 0; i < steps.length; i++) {
+        const nextIndex = (i + 1) % steps.length;
+        const prevIndex = (i - 1 + steps.length) % steps.length;
+        steps[i].buttons = {
+            "next-button": { action: "goto", target: steps[nextIndex].id },
+            "back-button": { action: "goto", target: steps[prevIndex].id },
+        };
+    }
+    return steps;
 }
 
-export const TOTAL_STEPS = STEPS.length;
+export const DEFAULT_STEPS: Step[] = buildSteps();
+export const TOTAL_STEPS = DEFAULT_STEPS.length;
 
-export default STEPS;
+export default DEFAULT_STEPS;
 
 // --- ModelSystem moved here so it can derive queries directly from `STEPS` ---
 export const Model = createComponent("Model", {});
 
-// Build queries dynamically from STEPS so ModelSystem reacts to any number of steps
-const MODEL_QUERIES: any = (() => {
-    const q: Record<string, any> = {};
-    q.panels = { required: [PanelUI] };
-    STEPS.forEach((step) => {
-        const cfg = typeof step.ui === "string" ? step.ui : ((step.ui as any)?.uiUrl ?? step.ui);
-        q[step.id] = {
-            required: [PanelUI, PanelDocument],
-            where: [eq(PanelUI, "config", cfg)],
-        };
-    });
-    return q;
-})();
+// Build queries dynamically from provided steps so ModelSystem reacts to any number of steps
+export function createModelSystem(steps: Step[]) {
+    const MODEL_QUERIES: any = (() => {
+        const q: Record<string, any> = {};
+        q.panels = { required: [PanelUI] };
+        steps.forEach((step) => {
+            const cfg = typeof step.ui === "string" ? step.ui : ((step.ui as any)?.uiUrl ?? step.ui);
+            q[step.id] = {
+                required: [PanelUI, PanelDocument],
+                where: [eq(PanelUI, "config", cfg)],
+            };
+        });
+        return q;
+    })();
 
-export class ModelSystem extends createSystem(MODEL_QUERIES) {
+    return class ModelSystem extends createSystem(MODEL_QUERIES) {
     private mixer?: AnimationMixer;
     private actions = new Map<string, any>();
     private modelObject?: any;
@@ -138,7 +148,7 @@ export class ModelSystem extends createSystem(MODEL_QUERIES) {
             });
         }
 
-        STEPS.forEach((step) => {
+        steps.forEach((step) => {
             const stepKey = step.id;
             const q = (this.queries as any)[stepKey];
             if (!q) return;
@@ -166,4 +176,5 @@ export class ModelSystem extends createSystem(MODEL_QUERIES) {
     update(delta: number) {
         if (this.mixer) this.mixer.update(delta);
     }
+};
 }
