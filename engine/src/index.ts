@@ -24,6 +24,7 @@ import { EnvironmentType, LocomotionEnvironment } from "@iwsdk/core";
 
 import { PanelSystem } from "./panel.js";
 import { PANEL_CONFIG } from "./panelConfig.js";
+import { STEPS } from "./steps.js";
 
 import { Robot } from "./robot.js";
 
@@ -116,21 +117,20 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       playbackMode: PlaybackMode.FadeRestart,
     });
 
+  const step0 = STEPS.step0Panel;
+  const opts = step0.panelOptions;
   const panelEntity = world
     .createTransformEntity()
     .addComponent(PanelUI, {
-      config: "./ui/step-0.json",
-      maxHeight: PANEL_CONFIG.maxHeight,
-      maxWidth: PANEL_CONFIG.maxWidth,
+      config: step0.ui,
+      maxHeight: opts?.maxHeight ?? PANEL_CONFIG.maxHeight,
+      maxWidth: opts?.maxWidth ?? PANEL_CONFIG.maxWidth,
     })
     .addComponent(Interactable)
-    .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
-  panelEntity.object3D!.position.set(
-    PANEL_CONFIG.position.x,
-    PANEL_CONFIG.position.y,
-    PANEL_CONFIG.position.z,
-  );
-  panelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
+    .addComponent(ScreenSpace, opts?.screenSpace ?? PANEL_CONFIG.screenSpace);
+  const pos = opts?.position ?? PANEL_CONFIG.position;
+  panelEntity.object3D!.position.set(pos.x, pos.y, pos.z);
+  panelEntity.object3D!.rotateY(opts?.rotationY ?? PANEL_CONFIG.rotationY);
 
   const webxrLogoTexture = AssetManager.getTexture("webxr")!;
   webxrLogoTexture.colorSpace = SRGBColorSpace;

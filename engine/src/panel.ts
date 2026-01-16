@@ -11,6 +11,7 @@ import {
   Vector3,
 } from "@iwsdk/core";
 import { PANEL_CONFIG } from "./panelConfig.js";
+import { STEPS } from "./steps.js";
 
 export class PanelSystem extends createSystem({
   step0Panel: {
@@ -49,21 +50,20 @@ export class PanelSystem extends createSystem({
         } else {
           // Switch to step-1 UI
           const entity = Array.from(this.queries.step0Panel.entities)[0];
+          const step = STEPS.step1Panel;
+          const opts = step.panelOptions;
           const newPanelEntity = this.world
             .createTransformEntity()
             .addComponent(PanelUI, {
-              config: "./ui/step-1.json",
-              maxHeight: PANEL_CONFIG.maxHeight,
-              maxWidth: PANEL_CONFIG.maxWidth,
+              config: step.ui,
+              maxHeight: opts?.maxHeight ?? PANEL_CONFIG.maxHeight,
+              maxWidth: opts?.maxWidth ?? PANEL_CONFIG.maxWidth,
             })
             .addComponent(Interactable)
-            .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
-          newPanelEntity.object3D!.position.set(
-            PANEL_CONFIG.position.x,
-            PANEL_CONFIG.position.y,
-            PANEL_CONFIG.position.z,
-          );
-          newPanelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
+            .addComponent(ScreenSpace, opts?.screenSpace ?? PANEL_CONFIG.screenSpace);
+          const pos = opts?.position ?? PANEL_CONFIG.position;
+          newPanelEntity.object3D!.position.set(pos.x, pos.y, pos.z);
+          newPanelEntity.object3D!.rotateY(opts?.rotationY ?? PANEL_CONFIG.rotationY);
           entity.destroy();
         }
       });
@@ -80,42 +80,40 @@ export class PanelSystem extends createSystem({
       const nextButton = document.getElementById("next-button") as UIKit.Text;
       nextButton.addEventListener("click", () => {
         const entity = Array.from(this.queries.step1Panel.entities)[0];
+        const step = STEPS.step2Panel;
+        const opts = step.panelOptions;
         const newPanelEntity = this.world
           .createTransformEntity()
           .addComponent(PanelUI, {
-            config: "./ui/step-2.json",
-            maxHeight: PANEL_CONFIG.maxHeight,
-            maxWidth: PANEL_CONFIG.maxWidth,
+            config: step.ui,
+            maxHeight: opts?.maxHeight ?? PANEL_CONFIG.maxHeight,
+            maxWidth: opts?.maxWidth ?? PANEL_CONFIG.maxWidth,
           })
           .addComponent(Interactable)
-          .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
-        newPanelEntity.object3D!.position.set(
-          PANEL_CONFIG.position.x,
-          PANEL_CONFIG.position.y,
-          PANEL_CONFIG.position.z,
-        );
-        newPanelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
+          .addComponent(ScreenSpace, opts?.screenSpace ?? PANEL_CONFIG.screenSpace);
+        const pos = opts?.position ?? PANEL_CONFIG.position;
+        newPanelEntity.object3D!.position.set(pos.x, pos.y, pos.z);
+        newPanelEntity.object3D!.rotateY(opts?.rotationY ?? PANEL_CONFIG.rotationY);
         entity.destroy();
       });
 
       const backButton = document.getElementById("back-button") as UIKit.Text;
       backButton.addEventListener("click", () => {
         const entity = Array.from(this.queries.step1Panel.entities)[0];
+        const step = STEPS.step0Panel;
+        const opts = step.panelOptions;
         const newPanelEntity = this.world
           .createTransformEntity()
           .addComponent(PanelUI, {
-            config: "./ui/step-0.json",
-            maxHeight: PANEL_CONFIG.maxHeight,
-            maxWidth: PANEL_CONFIG.maxWidth,
+            config: step.ui,
+            maxHeight: opts?.maxHeight ?? PANEL_CONFIG.maxHeight,
+            maxWidth: opts?.maxWidth ?? PANEL_CONFIG.maxWidth,
           })
           .addComponent(Interactable)
-          .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
-        newPanelEntity.object3D!.position.set(
-          PANEL_CONFIG.position.x,
-          PANEL_CONFIG.position.y,
-          PANEL_CONFIG.position.z,
-        );
-        newPanelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
+          .addComponent(ScreenSpace, opts?.screenSpace ?? PANEL_CONFIG.screenSpace);
+        const pos = opts?.position ?? PANEL_CONFIG.position;
+        newPanelEntity.object3D!.position.set(pos.x, pos.y, pos.z);
+        newPanelEntity.object3D!.rotateY(opts?.rotationY ?? PANEL_CONFIG.rotationY);
         entity.destroy();
       });
     });
@@ -132,42 +130,40 @@ export class PanelSystem extends createSystem({
       nextButton.addEventListener("click", () => {
         // No step-3 defined — cycle back to step-0
         const entity = Array.from(this.queries.step2Panel.entities)[0];
+        const step = STEPS.step0Panel;
+        const opts = step.panelOptions;
         const newPanelEntity = this.world
           .createTransformEntity()
           .addComponent(PanelUI, {
-            config: "./ui/step-0.json",
-            maxHeight: 0.8,
-            maxWidth: 1.6,
+            config: step.ui,
+            maxHeight: opts?.maxHeight ?? PANEL_CONFIG.maxHeight,
+            maxWidth: opts?.maxWidth ?? PANEL_CONFIG.maxWidth,
           })
           .addComponent(Interactable)
-          .addComponent(ScreenSpace, {
-            top: "20px",
-            right: "20px",
-            height: "40%",
-          });
-        newPanelEntity.object3D!.position.set(1.2, 1.29, -1.0);
-        newPanelEntity.object3D!.rotateY(-1.5);
+          .addComponent(ScreenSpace, opts?.screenSpace ?? PANEL_CONFIG.screenSpace);
+        const pos = opts?.position ?? PANEL_CONFIG.position;
+        newPanelEntity.object3D!.position.set(pos.x, pos.y, pos.z);
+        newPanelEntity.object3D!.rotateY(opts?.rotationY ?? PANEL_CONFIG.rotationY);
         entity.destroy();
       });
 
       const backButton = document.getElementById("back-button") as UIKit.Text;
       backButton.addEventListener("click", () => {
         const entity = Array.from(this.queries.step2Panel.entities)[0];
+        const step = STEPS.step1Panel;
+        const opts = step.panelOptions;
         const newPanelEntity = this.world
           .createTransformEntity()
           .addComponent(PanelUI, {
-            config: "./ui/step-1.json",
-            maxHeight: PANEL_CONFIG.maxHeight,
-            maxWidth: PANEL_CONFIG.maxWidth,
+            config: step.ui,
+            maxHeight: opts?.maxHeight ?? PANEL_CONFIG.maxHeight,
+            maxWidth: opts?.maxWidth ?? PANEL_CONFIG.maxWidth,
           })
           .addComponent(Interactable)
-          .addComponent(ScreenSpace, PANEL_CONFIG.screenSpace);
-        newPanelEntity.object3D!.position.set(
-          PANEL_CONFIG.position.x,
-          PANEL_CONFIG.position.y,
-          PANEL_CONFIG.position.z,
-        );
-        newPanelEntity.object3D!.rotateY(PANEL_CONFIG.rotationY);
+          .addComponent(ScreenSpace, opts?.screenSpace ?? PANEL_CONFIG.screenSpace);
+        const pos = opts?.position ?? PANEL_CONFIG.position;
+        newPanelEntity.object3D!.position.set(pos.x, pos.y, pos.z);
+        newPanelEntity.object3D!.rotateY(opts?.rotationY ?? PANEL_CONFIG.rotationY);
         entity.destroy();
       });
     });

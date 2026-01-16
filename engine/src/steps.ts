@@ -1,0 +1,55 @@
+import { PANEL_CONFIG } from "./panelConfig.js";
+
+export type PanelOptions = {
+    maxHeight?: number;
+    maxWidth?: number;
+    screenSpace?: Record<string, string>;
+    position?: { x: number; y: number; z: number };
+    rotationY?: number;
+};
+
+export const STEPS: Record<
+    string,
+    { ui: string; panelOptions: PanelOptions | null }
+> = {
+    step0Panel: {
+        ui: "./ui/step-0.json",
+        panelOptions: {
+            maxHeight: PANEL_CONFIG.maxHeight,
+            maxWidth: PANEL_CONFIG.maxWidth,
+            screenSpace: PANEL_CONFIG.screenSpace,
+            position: PANEL_CONFIG.position,
+            rotationY: PANEL_CONFIG.rotationY,
+        },
+    },
+    step1Panel: {
+        ui: "./ui/step-1.json",
+        panelOptions: {
+            maxHeight: PANEL_CONFIG.maxHeight,
+            maxWidth: PANEL_CONFIG.maxWidth,
+            screenSpace: PANEL_CONFIG.screenSpace,
+            position: PANEL_CONFIG.position,
+            rotationY: PANEL_CONFIG.rotationY,
+        },
+    },
+    step2Panel: {
+        ui: "./ui/step-2.json",
+        panelOptions: {
+            maxHeight: 0.8,
+            maxWidth: 1.6,
+            screenSpace: { top: "20px", right: "20px", height: "40%" },
+            position: PANEL_CONFIG.position,
+            rotationY: PANEL_CONFIG.rotationY,
+        },
+    },
+};
+
+export const ASSET_ANIMATIONS: Record<string, Record<string, string | null>> = {
+    cube: {
+        step0Panel: null,
+        step1Panel: "cubeanimation1",
+        step2Panel: "cubeanimation2",
+    },
+};
+
+export default STEPS;

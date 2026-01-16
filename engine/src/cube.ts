@@ -6,6 +6,7 @@ import {
     PanelDocument,
     eq,
 } from "@iwsdk/core";
+import { ASSET_ANIMATIONS } from "./steps.js";
 
 import { AnimationMixer } from "@iwsdk/core";
 
@@ -50,27 +51,31 @@ export class CubeSystem extends createSystem({
 
         this.queries.step1Panel.subscribe("qualify", () => {
             if (this.cubeObject) this.cubeObject.visible = true;
-            const action = this.actions.get("cubeanimation1");
-            if (action) {
-                // stop any other actions first
-                this.actions.forEach((a, name) => {
-                    if (name !== "cubeanimation1") a.stop();
-                });
-                action.reset();
-                action.play();
+            const actionName = ASSET_ANIMATIONS.cube.step1Panel;
+            if (actionName) {
+                const action = this.actions.get(actionName);
+                if (action) {
+                    this.actions.forEach((a, name) => {
+                        if (name !== actionName) a.stop();
+                    });
+                    action.reset();
+                    action.play();
+                }
             }
         });
 
         this.queries.step2Panel.subscribe("qualify", () => {
             if (this.cubeObject) this.cubeObject.visible = true;
-            const action = this.actions.get("cubeanimation2");
-            if (action) {
-                // stop any other actions first
-                this.actions.forEach((a, name) => {
-                    if (name !== "cubeanimation2") a.stop();
-                });
-                action.reset();
-                action.play();
+            const actionName = ASSET_ANIMATIONS.cube.step2Panel;
+            if (actionName) {
+                const action = this.actions.get(actionName);
+                if (action) {
+                    this.actions.forEach((a, name) => {
+                        if (name !== actionName) a.stop();
+                    });
+                    action.reset();
+                    action.play();
+                }
             }
         });
 
