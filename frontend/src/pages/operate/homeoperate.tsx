@@ -81,7 +81,15 @@ export default function HomeOperate() {
                           <div className="text-sm text-muted-foreground">Version: {m.version ?? '-'}</div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => navigate(`/operate/module/${m.id}`)}>Open</Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const engineUrl = (import.meta as any).env?.VITE_ENGINE_URL || 'https://localhost:8081'
+                              const url = `${engineUrl}?moduleId=${m.id}`
+                              window.open(url, '_blank')
+                            }}
+                          >Open in XR</Button>
                           <Button variant="ghost" size="sm" onClick={async () => {
                             try {
                               const runtime = await apiClient.getModuleRuntime(m.id)
