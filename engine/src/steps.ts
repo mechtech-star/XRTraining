@@ -31,49 +31,58 @@ export type Step = {
     buttons: Record<string, ButtonAction>;
 };
 
-export const STEPS: Step[] = [
-    {
-        id: 'step1Panel',
-        stepNumber: 0,
-        ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-1.json" },
-        panelOptions: PANEL_CONFIG,
-        assets: {
-            model: { animation: "cubeanimation1" },
-        },
-        buttons: {} as Record<string, ButtonAction>,
-    },
-    {
-        id: 'step2Panel',
-        stepNumber: 1,
-        ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-2.json" },
-        panelOptions: PANEL_CONFIG,
-        assets: {
-            model: { animation: "cubeanimation2" },
-        },
-        buttons: {} as Record<string, ButtonAction>,
-    },
-    {
-        id: 'step3Panel',
-        stepNumber: 3,
-        ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-3.json" },
-        panelOptions: PANEL_CONFIG,
-        assets: {
-            model: { animation: "cubeanimation2" },
-        },
-        buttons: {} as Record<string, ButtonAction>,
-    },
-    {
-        id: 'step4Panel',
-        stepNumber: 4,
-        ui: { uiUrl: "http://localhost:8000/media/published_modules/test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e-step-4.json" },
-        panelOptions: PANEL_CONFIG,
-        assets: {
-            model: { animation: "cubeanimation2" },
-        },
-        buttons: {} as Record<string, ButtonAction>,
-    },
+const DEFAULT_PUBLISHED_MODULE_ID = "test-001-413937dc-e3ce-4468-8d7e-6b6da632a09e";
 
-];
+function publishedModuleUrl(moduleId: string, stepNumber: number) {
+    return `http://localhost:8000/media/published_modules/${moduleId}-step-${stepNumber}.json`;
+}
+
+export function createSteps(moduleId: string = DEFAULT_PUBLISHED_MODULE_ID): Step[] {
+    return [
+        {
+            id: 'step1Panel',
+            stepNumber: 0,
+            ui: { uiUrl: publishedModuleUrl(moduleId, 1) },
+            panelOptions: PANEL_CONFIG,
+            assets: {
+                model: { animation: "cubeanimation1" },
+            },
+            buttons: {} as Record<string, ButtonAction>,
+        },
+        {
+            id: 'step2Panel',
+            stepNumber: 1,
+            ui: { uiUrl: publishedModuleUrl(moduleId, 2) },
+            panelOptions: PANEL_CONFIG,
+            assets: {
+                model: { animation: "cubeanimation2" },
+            },
+            buttons: {} as Record<string, ButtonAction>,
+        },
+        {
+            id: 'step3Panel',
+            stepNumber: 3,
+            ui: { uiUrl: publishedModuleUrl(moduleId, 3) },
+            panelOptions: PANEL_CONFIG,
+            assets: {
+                model: { animation: "cubeanimation2" },
+            },
+            buttons: {} as Record<string, ButtonAction>,
+        },
+        {
+            id: 'step4Panel',
+            stepNumber: 4,
+            ui: { uiUrl: publishedModuleUrl(moduleId, 4) },
+            panelOptions: PANEL_CONFIG,
+            assets: {
+                model: { animation: "cubeanimation2" },
+            },
+            buttons: {} as Record<string, ButtonAction>,
+        },
+    ];
+}
+
+export const STEPS: Step[] = createSteps();
 
 // Auto-generate next/back buttons for each step in a single place.
 for (let i = 0; i < STEPS.length; i++) {

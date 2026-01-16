@@ -19,7 +19,25 @@ export default defineConfig({
       level: "medium",
     }),
   ],
-  server: { host: "0.0.0.0", port: 8081, open: true },
+  server: {
+    host: "0.0.0.0",
+    port: 8081,
+    open: true,
+    proxy: {
+      // Proxy API and media requests to the Django backend (http)
+      // This lets the engine run on HTTPS while backend stays HTTP in dev.
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/media": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
   build: {
     outDir: "dist",
     sourcemap: process.env.NODE_ENV !== "production",
