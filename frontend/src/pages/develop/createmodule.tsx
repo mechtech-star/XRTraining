@@ -13,6 +13,7 @@ type Step = {
     model?: string
     modelName?: string
     stepAssetId?: string
+    animation?: string
 }
 
 export default function CreateModule() {
@@ -95,6 +96,7 @@ export default function CreateModule() {
                     id: step.id,
                     title: step.title,
                     content: step.body,
+                    animation: step.animation ?? undefined,
                     model: assetId,
                     modelName: undefined,
                     stepAssetId,
@@ -121,6 +123,7 @@ export default function CreateModule() {
                 id: newStep.id,
                 title: newStep.title,
                 content: newStep.body,
+                animation: newStep.animation ?? undefined,
             }
             setSteps((prev) => {
                 const next = [...prev, step]
@@ -143,10 +146,11 @@ export default function CreateModule() {
         const t = window.setTimeout(async () => {
             const s = stepsRef.current.find((st) => st.id === stepId)
             if (!s) return
-            try {
+                try {
                 await apiClient.updateStep(stepId, {
                     title: s.title,
                     body: s.content,
+                    animation: (s as any).animation ?? null,
                     required: false,
                 })
             } catch (err) {
@@ -213,13 +217,13 @@ export default function CreateModule() {
         if (!step) return
         if (!step.stepAssetId) {
             // nothing to unassign on server, just clear locally
-            updateStep(index, { model: undefined, modelName: undefined, stepAssetId: undefined })
+            updateStep(index, { model: undefined, modelName: undefined, stepAssetId: undefined, animation: undefined })
             return
         }
         setIsSaving(true)
         try {
             await apiClient.deleteStepAsset(step.stepAssetId)
-            updateStep(index, { model: undefined, modelName: undefined, stepAssetId: undefined })
+            updateStep(index, { model: undefined, modelName: undefined, stepAssetId: undefined, animation: undefined })
         } catch (err) {
             console.error('Failed to unassign asset:', err)
             setError(`Failed to unassign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)

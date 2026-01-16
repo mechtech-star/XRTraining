@@ -34,7 +34,7 @@ interface ModuleItem {
   id: string
   title: string
   description?: string
-  created_at?: string
+  updated_at?: string
 }
 
 export default function HomeDevelop() {
@@ -323,7 +323,7 @@ export default function HomeDevelop() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-3">
                   {loadingModules ? (
                     <div className="text-muted-foreground">Loading modules...</div>
                   ) : modules.length === 0 ? (
@@ -331,11 +331,11 @@ export default function HomeDevelop() {
                   ) : (
                     <ul className="space-y-2">
                       {modules.map((m) => (
-                        <li key={m.id} className="flex items-center justify-between p-3 rounded border border-border bg-card">
+                        <li key={m.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
                           <div>
                             <div className="font-medium text-foreground">{m.title}</div>
-                            {m.created_at && (
-                              <div className="text-sm text-muted-foreground">{new Date(m.created_at).toLocaleString()}</div>
+                            {m.updated_at && (
+                              <div className="text-sm text-muted-foreground">{new Date(m.updated_at).toLocaleString()}</div>
                             )}
                           </div>
                           <div className="flex items-center gap-2">

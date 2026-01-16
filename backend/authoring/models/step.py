@@ -9,6 +9,7 @@ class Step(models.Model):
     order_index = models.PositiveIntegerField()
     title = models.CharField(max_length=200)
     body = models.TextField()
+    animation = models.CharField(max_length=200, blank=True, null=True)
     required = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
