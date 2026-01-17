@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+} from '../../components/ui/dropdown-menu'
+import { MoreHorizontal, Grid2x2Plus, FolderUp, CircleCheck } from 'lucide-react'
 import AssetSidebar from '../../components/pagecomponents/asset-sidebar'
 import Header from '../../components/pagecomponents/header'
-import StepConfiguration from '../../components/pagecomponents/step-configuration'
+import ModuleConfiguration from '../../components/pagecomponents/module-configuration'
 import { apiClient } from '../../lib/api'
 
 type Step = {
@@ -28,6 +35,8 @@ export default function CreateModule() {
     const stepsRef = useRef<Step[]>([])
     const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null)
     const [assets, setAssets] = useState<any[]>([])
+    const [multiSelectMode, setMultiSelectMode] = useState(false)
+    const [multiSelectedIds, setMultiSelectedIds] = useState<string[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -191,19 +200,37 @@ export default function CreateModule() {
     }
 
     async function assignModelToStep(assetId: string) {
-        if (selectedStepIndex === null) {
-            alert('Select a step to assign this model to (click a step on the left).')
+        // If multi-select mode active, assign to all selected steps
+        const targets = multiSelectMode && multiSelectedIds.length > 0
+            ? steps.filter((s) => multiSelectedIds.includes(s.id))
+            : (selectedStepIndex === null ? [] : [steps[selectedStepIndex]]).filter(Boolean)
+
+        if (targets.length === 0) {
+            alert('Select at least one step to assign this model to.')
             return
         }
-        const step = steps[selectedStepIndex]
-        if (!step) return
 
         setIsSaving(true)
         try {
-            const res: any = await apiClient.assignAssetToStep(step.id, assetId, 0)
-            const asset = assets.find((a) => a.id === assetId)
-            const modelName = asset ? (asset.name ?? asset.originalFilename ?? '') : undefined
-            updateStep(selectedStepIndex, { model: assetId, modelName, stepAssetId: res?.id })
+            // assign to each target and collect results
+            await Promise.all(targets.map(async (t) => {
+                const res: any = await apiClient.assignAssetToStep(t.id, assetId, 0)
+                return { stepId: t.id, res }
+            }))
+
+            // update local state for affected steps
+            setSteps((prev) => prev.map((s) => {
+                if (!targets.find((t) => t.id === s.id)) return s
+                const asset = assets.find((a) => a.id === assetId)
+                const modelName = asset ? (asset.name ?? asset.originalFilename ?? '') : undefined
+                return { ...s, model: assetId, modelName, stepAssetId: undefined }
+            }))
+
+            // exit multi-select mode after assign
+            if (multiSelectMode) {
+                setMultiSelectMode(false)
+                setMultiSelectedIds([])
+            }
         } catch (err) {
             console.error('Failed to assign asset:', err)
             setError(`Failed to assign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -273,15 +300,48 @@ export default function CreateModule() {
                         <div className="h-full rounded-lg border border-border bg-background flex flex-col overflow-hidden">
                             <div className="px-4 pt-4 flex-shrink-0">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-semibold text-foreground">Configure Steps</h3>
+                                    <h3 className="text-lg font-semibold text-foreground">Configure Module</h3>
                                     <div className="flex gap-2">
-                                        <Button size="sm" onClick={addStep} disabled={isSaving}>
-                                            Add Step
-                                        </Button>
-                                        <Button size="sm" variant="secondary" onClick={handlePublish} disabled={isSaving || steps.length === 0}>
-                                            Publish
-                                        </Button>
-                                    </div>
+                                            <Button size="sm" onClick={addStep} disabled={isSaving} className="flex items-center gap-2">
+                                                <Grid2x2Plus className="w-4 h-4" />
+                                                <span>Add Step</span>
+                                            </Button>
+
+                                            <Button
+                                                size="sm"
+                                                variant={multiSelectMode ? 'secondary' : 'outline'}
+                                                onClick={() => {
+                                                    const next = !multiSelectMode
+                                                    setMultiSelectMode(next)
+                                                    if (!next) {
+                                                        setMultiSelectedIds([])
+                                                    } else {
+                                                        setSelectedStepIndex(null)
+                                                    }
+                                                }}
+                                                className="flex items-center gap-2"
+                                            >
+                                                <CircleCheck className="w-4 h-4" />
+                                                <span>{multiSelectMode ? 'Exit Multi Select' : 'Multi Select'}</span>
+                                            </Button>
+
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button size="icon-sm" variant="ghost" title="More">
+                                                        <MoreHorizontal className="w-4 h-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+
+                                                <DropdownMenuContent sideOffset={6} align="end">
+                                                    <DropdownMenuItem onSelect={() => handlePublish()}>
+                                                        <div className="flex items-center gap-2">
+                                                            <FolderUp className="w-4 h-4" />
+                                                            <span>Publish</span>
+                                                        </div>
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
                                 </div>
                                 {error && (
                                     <div className="mt-2 p-2 bg-red-100 text-red-700 rounded text-sm">
@@ -290,15 +350,27 @@ export default function CreateModule() {
                                 )}
                             </div>
                             <div className="flex-1 overflow-y-auto px-4">
-                                <StepConfiguration
+                                <ModuleConfiguration
                                     steps={steps}
                                     selectedIndex={selectedStepIndex}
-                                    onSelect={(i) => setSelectedStepIndex(i)}
+                                    onSelect={(i) => {
+                                        // Navigate to single-step editor page
+                                        const s = steps[i]
+                                        if (!s || !moduleId) return
+                                        navigate(`/develop/configure-step?moduleId=${moduleId}&stepId=${s.id}&index=${i}&moduleName=${encodeURIComponent(decodedModuleName)}`)
+                                    }}
                                     onUpdate={updateStep}
                                     onUnassign={unassignModel}
                                     onRemove={removeStep}
                                     isSaving={isSaving}
                                     assets={assets}
+                                    multiSelectMode={multiSelectMode}
+                                    multiSelectedIds={multiSelectedIds}
+                                    onToggleSelect={(i) => {
+                                        const id = steps[i]?.id
+                                        if (!id) return
+                                        setMultiSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+                                    }}
                                 />
                             </div>
                         </div>

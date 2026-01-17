@@ -12,6 +12,8 @@ class StepAssetInlineSerializer(serializers.ModelSerializer):
 
 class StepSerializer(serializers.ModelSerializer):
     step_assets = StepAssetInlineSerializer(many=True, required=False)
+    # Allow empty step body from the frontend (clearing the textarea)
+    body = serializers.CharField(allow_blank=True, required=False)
 
     class Meta:
         model = Step
