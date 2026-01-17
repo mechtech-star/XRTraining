@@ -1,5 +1,6 @@
 import { Button } from '../ui/button'
 import { ChevronLeft } from 'lucide-react'
+import ThemeToggle from '../ui/theme-toggle'
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar'
 
 type HeaderProps = {
@@ -22,7 +23,8 @@ export default function Header({ title, onBack, showBack = true }: HeaderProps) 
                 <div className="flex-1 flex justify-center">
                     <h2 className="text-xl font-semibold text-foreground">{title}</h2>
                 </div>
-                <div className="flex-1 flex justify-end">
+                <div className="flex-1 flex justify-end items-center gap-2">
+                    <ThemeToggle />
                     <Avatar className="w-9 h-9">
                         <AvatarFallback>UN</AvatarFallback>
                     </Avatar>

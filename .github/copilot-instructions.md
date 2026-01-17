@@ -1,3 +1,66 @@
+# Copilot instructions — XR Training
+
+Purpose
+- Help coding agents become productive quickly in this monorepo (backend, frontend, engine, external SDK).
+
+Quick architecture summary
+- Backend: Django REST API (see `backend/`), authoring models in `backend/authoring/models/`, serializers in `backend/authoring/serializers/`, views in `backend/authoring/views/`, publishing logic in `backend/authoring/services/publish_service.py`.
+- Frontend: React + TypeScript (see `frontend/`), centralized API client at `frontend/src/lib/api.ts` — all backend calls must use this client.
+- Engine: XR runtime (see `engine/`), bootstrap in `engine/src/index.ts`, UI sources in `ui/*.uikitml`. Build outputs live under `engine/public/` and must not be edited directly.
+- External SDK: `external/immersive-web-sdk/` is an upstream dependency; treat as read-only unless explicitly modifying SDK and publishing `.tgz` artifacts.
+
+Developer workflows / commands
+- Backend (Windows dev):
+  - Create venv, install and run:
+    - `cd backend`
+    - `python -m venv venv`
+    - `venv\\Scripts\\activate` (Windows)
+    - `pip install -r requirements.txt`
+    - `python manage.py migrate`
+    - `python manage.py runserver 0.0.0.0:8000`
+- Frontend:
+  - `cd frontend`
+  - `npm install`
+  - `npm run dev` (uses `VITE_API_URL` — default points to backend at `http://localhost:8000/api`)
+- Engine (requires Node >= 20.19.0):
+  - `cd engine`
+  - `npm install`
+  - `npm run dev` (serves on TLS; mkcert is used during dev)
+
+Critical repo conventions (project-specific)
+- Models use UUID primary keys across backend — expect `id` fields as UUIDs.
+- Publishing is immutable: `PublishedModule` objects are created (incremented versions), do not modify existing published payloads.
+- Asset storage path convention: `media/assets/{type}/{uuid}/original.{ext}`.
+- Steps use `order_index` for sequencing; reordering should be atomic server-side.
+- Frontend MUST use `frontend/src/lib/api.ts` for all server interactions (no raw `fetch` calls in pages/components).
+- Engine `public/` directory contains generated/optimized assets — edit sources only (`ui/*.uikitml`, `src/` code, engine asset manifests).
+
+Integration points & data flow (common tasks)
+- Authoring flow (frontend → backend): create module → add steps → upload GLTF assets → assign assets to steps → `POST /api/modules/{moduleId}/publish`. Check `frontend/src/lib/api.ts` for exact endpoints.
+- Runtime flow (engine ← backend): engine fetches published payload via `GET /api/modules/{moduleId}/runtime`; payload contains ordered steps and asset URLs the engine loads.
+- Publishing logic: `backend/authoring/services/publish_service.py` compiles immutable runtime payloads; inspect it when changing publish output shape.
+
+Files to inspect first (fast onboarding)
+- `backend/authoring/models/` — domain models (Module, Step, Asset, PublishedModule).
+- `backend/authoring/services/publish_service.py` — runtime payload generation.
+- `frontend/src/lib/api.ts` — central API client; reference for all endpoints and request shapes.
+- `engine/src/index.ts` — engine bootstrap and asset manifest; `ui/*.uikitml` for UI sources.
+
+Debugging notes / gotchas
+- Do not edit generated assets under `engine/public/` or `engine/public/ui/*.json` — changes will be overwritten by the build pipeline.
+- If engine dev server fails, confirm Node version >= 20.19 and that `mkcert` certificates exist for TLS.
+- Backend errors often stem from missing migrations; run `python manage.py migrate` and inspect `backend/backend/settings.py` for DB and CORS settings.
+- Frontend expects backend URLs via `VITE_API_URL`; missing/incorrect value leads to CORS or 404s.
+
+Examples (common change paths)
+- Add API field for module publish: update serializer in `backend/authoring/serializers/`, adjust `publish_service.py` output, then add client mapping in `frontend/src/lib/api.ts`.
+- Add an engine system: create `engine/src/mySystem.ts`, export it, then register in `engine/src/index.ts` and add any assets to the engine manifest.
+
+What agents should not change
+- Never modify `external/immersive-web-sdk/` without an explicit plan and `.tgz` rebuild.
+- Do not edit the `engine/public/` build artifacts; change sources under `engine/ui/` and `engine/src/` instead.
+
+If anything is unclear or you want this shortened or expanded, tell me which sections to focus on and I'll iterate.
 ## Purpose
 
 Actionable guidance for AI agents working in this XR training platform—a full-stack system for authoring and delivering immersive training modules.

@@ -319,9 +319,9 @@ export default function AssetSidebar({ models, onAssignModel, onDelete, onUpload
                             </DropdownMenuTrigger>
 
                             <DropdownMenuContent sideOffset={6} align="end">
-                              <DropdownMenuItem onSelect={() => onDelete && onDelete(m.id)} className="text-destructive">
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                                <span className="text-destructive">Delete</span>
+                              <DropdownMenuItem onSelect={() => onDelete && onDelete(m.id)} variant="destructive">
+                                <Trash2 className="mr-2 w-4 h-4 text-destructive" />
+                                Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

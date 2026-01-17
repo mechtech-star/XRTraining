@@ -62,3 +62,44 @@ class Asset(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - simple repr
         return f"Asset({self.id}, {self.original_filename})"
+
+
+# Ensure underlying files are removed from storage when Asset records change or are deleted.
+from django.db.models.signals import post_delete, pre_save
+from django.dispatch import receiver
+
+
+@receiver(post_delete, sender=Asset)
+def _delete_asset_file_on_delete(sender, instance: Asset, **kwargs):
+    """Delete file from storage when Asset is deleted."""
+    try:
+        if instance.file:
+            instance.file.delete(save=False)
+    except Exception:
+        # Be conservative in signal handlers; log elsewhere if needed
+        pass
+
+
+@receiver(pre_save, sender=Asset)
+def _delete_old_file_on_change(sender, instance: Asset, **kwargs):
+    """When an Asset's `file` is replaced, delete the old file from storage.
+
+    This handles the in-place update case (same DB row, new upload). If your
+    replacement flow creates a new Asset row and then deletes the old one,
+    `post_delete` will handle cleanup; this pre-save covers updates of the
+    existing Asset instance.
+    """
+    if not instance.pk:
+        return
+    try:
+        old = Asset.objects.get(pk=instance.pk)
+    except Asset.DoesNotExist:
+        return
+    old_file = old.file
+    new_file = instance.file
+    try:
+        # If the file field changed, delete the previous file
+        if old_file and old_file.name and old_file.name != (new_file.name if new_file else None):
+            old_file.delete(save=False)
+    except Exception:
+        pass

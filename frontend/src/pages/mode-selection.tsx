@@ -1,15 +1,14 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/button'
-import { Code, Play } from 'lucide-react'
 
 export default function ModeSelection() {
   const navigate = useNavigate()
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-background relative"
+      className="min-h-screen flex items-center justify-center bg-background relative dark"
       style={{
-        backgroundImage: `url('/industry-background.jpg')`,
+        backgroundImage: `url('/industry-background.webp')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -18,8 +17,8 @@ export default function ModeSelection() {
       {/* Dark overlay for better text readability */}
       <div className="absolute inset-0 bg-black/50" aria-hidden="true" />
 
-      {/* Glassmorphic center container */}
-      <div className="relative max-w-lg p-8 rounded-2xl border border-border bg-card/5 backdrop-blur-md shadow-2xl">
+      {/* Glassmorphic center container (forced dark) */}
+      <div className="relative max-w-lg p-8 rounded-2xl border border-border bg-card/5 dark:bg-card/80 dark:border-border backdrop-blur-md shadow-2xl">
         <div className="grid grid-cols-1 items-center text-card-foreground text-center">
           <div className="px-2 py-4 flex flex-col justify-center items-center">
             {/* Header section */}
@@ -33,22 +32,20 @@ export default function ModeSelection() {
             {/* Action buttons */}
             <div className="flex flex-col items-center gap-4 pt-6">
               <Button
-                onClick={() => navigate('/develop')}
+                onClick={() => navigate('/homeoperate')}
                 size="lg"
                 className="w-full sm:w-72 flex items-center justify-center gap-2 py-3"
               >
-                <Code size={18} />
-                Develop
+                Start Training
               </Button>
 
               <Button
-                onClick={() => navigate('/homeoperate')}
+                onClick={() => navigate('/develop')}
                 size="lg"
                 variant="outline"
                 className="w-full sm:w-72 flex items-center justify-center gap-2 py-3"
               >
-                <Play size={18} />
-                Operate
+                Start Development
               </Button>
             </div>
           </div>

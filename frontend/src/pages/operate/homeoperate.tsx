@@ -1,6 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { Button } from '../../components/ui/button'
+import { RefreshCw, Search } from 'lucide-react'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '../../components/ui/input-group'
 import Header from '../../components/pagecomponents/header'
 import { apiClient } from '../../lib/api'
 
@@ -12,10 +19,29 @@ interface ModuleItem {
   updated_at?: string
 }
 
+function formatPublishedDate(dateStr?: string) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const day = d.getDate()
+  const month = d.toLocaleString('en-US', { month: 'short' })
+  const year = d.getFullYear()
+  let hours = d.getHours()
+  const minutes = d.getMinutes().toString().padStart(2, '0')
+  const ampm = hours >= 12 ? 'pm' : 'am'
+  hours = hours % 12 || 12
+  return `${day} ${month} ${year} - ${hours}:${minutes} ${ampm}`
+}
+
 export default function HomeOperate() {
   const navigate = useNavigate()
   const [modules, setModules] = useState<ModuleItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const filteredModules = modules.filter((m) => {
+    if (!query) return true
+    return (m.title || '').toLowerCase().includes(query.toLowerCase())
+  })
 
   useEffect(() => {
     let mounted = true
@@ -57,50 +83,56 @@ export default function HomeOperate() {
 
           <div className="col-span-1 lg:col-span-12 pl-2 py-2 overflow-hidden">
             <div className="h-full rounded-lg border border-border bg-background flex flex-col overflow-hidden">
-              <div className="p-3 flex items-center justify-between border-b border-border flex-shrink-0">
+                <div className="p-3 flex items-center justify-between border-b border-border flex-shrink-0">
                 <h3 className="text-lg font-medium text-foreground">Published Modules</h3>
                 <div className="flex items-center gap-3">
-                  <Button variant="secondary" size="sm" onClick={reloadModules}>Reload</Button>
+                  <div className="flex items-center gap-3">
+                    <InputGroup className="w-64">
+                      <InputGroupAddon align="inline-start">
+                        <Search className="w-4 h-4" />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        id="module-search-input"
+                        className="text-foreground"
+                        placeholder="Search modules..."
+                        value={query}
+                        onChange={(e) => setQuery((e.target as HTMLInputElement).value)}
+                        aria-label="Search modules"
+                      />
+                    </InputGroup>
+                    <Button variant="secondary" size="icon" onClick={reloadModules} aria-label="Reload modules">
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-3">
                 {loading ? (
                   <div className="text-muted-foreground">Loading published modules...</div>
-                ) : modules.length === 0 ? (
-                  <div className="text-muted-foreground">No published modules found.</div>
+                ) : filteredModules.length === 0 ? (
+                  <div className="text-muted-foreground">
+                    {modules.length === 0 ? 'No published modules found.' : 'No modules match your search.'}
+                  </div>
                 ) : (
                   <ul className="space-y-2">
-                    {modules.map((m) => (
+                    {filteredModules.map((m) => (
                       <li key={m.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
                         <div>
                           <div className="font-medium text-foreground">{m.title}</div>
                           {m.updated_at && (
-                            <div className="text-sm text-muted-foreground">{new Date(m.updated_at).toLocaleString()}</div>
+                            <div className="text-sm text-muted-foreground">Published on {formatPublishedDate(m.updated_at)}</div>
                           )}
-                          <div className="text-sm text-muted-foreground">Version: {m.version ?? '-'}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Button
-                            variant="ghost"
-                            size="sm"
+                            size="lg"
                             onClick={() => {
                               const engineUrl = (import.meta as any).env?.VITE_ENGINE_URL || 'https://localhost:8081'
                               const url = `${engineUrl}?moduleId=${m.id}`
                               window.open(url, '_blank')
                             }}
                           >Open in XR</Button>
-                          <Button variant="ghost" size="sm" onClick={async () => {
-                            try {
-                              const runtime = await apiClient.getModuleRuntime(m.id)
-                              // open runtime JSON in new tab
-                              const blob = new Blob([JSON.stringify(runtime, null, 2)], { type: 'application/json' })
-                              const url = URL.createObjectURL(blob)
-                              window.open(url, '_blank')
-                            } catch (err) {
-                              alert('Failed to fetch runtime payload')
-                            }
-                          }}>View JSON</Button>
                         </div>
                       </li>
                     ))}

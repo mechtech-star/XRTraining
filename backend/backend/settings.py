@@ -101,3 +101,11 @@ ALLOWED_ASSET_EXTENSIONS = {
     "model": {".gltf", ".glb", ".fbx", ".obj"},
     "other": set(),  # optional catch-all
 }
+# Retention policy for published module payloads.
+# - keep_latest: integer number of most-recent versions to keep per module.
+# - auto_prune: if True, the publish flow will trigger pruning after a successful publish.
+# Adjust via environment or directly in settings for your deployment.
+PUBLISHED_MODULE_RETENTION = {
+    "keep_latest": int(os.environ.get("PUBLISHED_MODULE_KEEP_LATEST", 3)),
+    "auto_prune": os.environ.get("PUBLISHED_MODULE_AUTO_PRUNE", "0") == "1",
+}

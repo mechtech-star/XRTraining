@@ -8,6 +8,12 @@ from django.utils.text import slugify
 import json
 import os
 
+# Optional pruning helper will be invoked if configured in settings
+try:
+    from authoring.services.prune_service import prune_published_modules
+except Exception:
+    prune_published_modules = None
+
 SCHEMA_VERSION = 1
 
 
@@ -243,8 +249,40 @@ def publish_module(module: Module) -> PublishedModule:
             # Save the updated payload (with uiUrl fields) back to the published object
             published.payload = payload
             published.save(update_fields=["payload"])
+            # Clean up orphaned per-step UI JSON files for this module.
+            try:
+                # Build set of filenames referenced by the new payload
+                referenced_fnames = set()
+                for step in payload.get("steps", []):
+                    ui_url = step.get("uiUrl")
+                    if ui_url:
+                        referenced_fnames.add(os.path.basename(ui_url))
+
+                # Remove any step files matching the module pattern that are not referenced
+                pattern = f"{slug}-{module.id}-step-"
+                for fname in os.listdir(out_dir):
+                    if not fname.startswith(pattern):
+                        continue
+                    if fname in referenced_fnames:
+                        continue
+                    try:
+                        os.remove(os.path.join(out_dir, fname))
+                    except Exception:
+                        # best-effort cleanup; don't break publish
+                        pass
+            except Exception:
+                pass
         except Exception:
             # Fail-safe: publishing itself shouldn't fail because of filesystem issues.
             # Errors are logged at higher levels; swallow here to avoid breaking transaction.
+            pass
+        # Optionally trigger pruning according to retention policy
+        try:
+            retention = getattr(settings, "PUBLISHED_MODULE_RETENTION", {}) or {}
+            if retention.get("auto_prune") and prune_published_modules:
+                keep = int(retention.get("keep_latest", 3))
+                # Run pruning in best-effort mode; don't let it break publish
+                prune_published_modules(keep_latest=keep)
+        except Exception:
             pass
         return published

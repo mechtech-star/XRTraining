@@ -17,7 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '../../components/ui/dropdown-menu'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, Edit, Trash2 } from 'lucide-react'
 import AssetSidebar from '../../components/pagecomponents/asset-sidebar'
 import Header from '../../components/pagecomponents/header'
 import { apiClient } from '../../lib/api'
@@ -354,8 +354,14 @@ export default function HomeDevelop() {
                                   </Button>
                                 </DropdownMenuTrigger>
                               <DropdownMenuContent sideOffset={6} align="end">
-                                <DropdownMenuItem onSelect={() => openRenameDialog(m.id, m.title)}>Rename</DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => openDeleteDialog(m.id, m.title)} variant="destructive">Delete</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => openRenameDialog(m.id, m.title)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => openDeleteDialog(m.id, m.title)} variant="destructive">
+                                  <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                                  Delete
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
