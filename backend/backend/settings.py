@@ -24,6 +24,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+    "backend.middleware.custom_cors.CustomCORS",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -96,7 +97,7 @@ ASSET_MAX_UPLOAD_BYTES = int(os.environ.get("ASSET_MAX_UPLOAD_BYTES", 104857600)
 ALLOWED_ASSET_EXTENSIONS = {
     "image": {".png", ".jpg", ".jpeg", ".gif", ".webp"},
     "audio": {".mp3", ".wav", ".ogg"},
-    "video": {".mp4", ".webm"},
+    "video": {".mp4", ".webm", ".ogg"},
     "gltf": {".gltf", ".glb"},
     "model": {".gltf", ".glb", ".fbx", ".obj"},
     "other": set(),  # optional catch-all

@@ -245,6 +245,23 @@ class ApiClient {
   async getModuleRuntime(moduleId: string) {
     return this.request(`/modules/${moduleId}/runtime`)
   }
+
+  // Media-specific helpers
+  async assignMediaToStep(
+    stepId: string,
+    assetId: string,
+    options?: {
+      poster?: string
+      autoplay?: boolean
+      loop?: boolean
+      caption?: string
+    }
+  ) {
+    return this.assignAssetToStep(stepId, assetId, 0, {
+      ...options,
+      role: 'side-media',
+    } as any)
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL)

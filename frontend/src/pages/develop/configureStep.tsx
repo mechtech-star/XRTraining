@@ -18,6 +18,13 @@ type Step = {
     title: string
     content: string
     models?: ModelContainer[]
+    media?: {
+        assetId: string
+        url?: string
+        type?: string
+        stepAssetId?: string
+        caption?: string
+    }
     // Legacy single model support
     model?: string
     modelName?: string
@@ -70,17 +77,45 @@ export default function ConfigureStep() {
                 const assetField = assetEntry?.asset
                 const assetId = assetField && (typeof assetField === 'string' ? assetField : assetField.id)
                 const stepAssetId = assetEntry?.id
-                
-                // Build models array from all step_assets (support multiple models per step)
-                const models: ModelContainer[] = (found.step_assets || []).map((sa: any) => {
+
+                // Detect side-media assignment if present (role=side-media) or asset type is image/video
+                let mediaBlock: any = undefined
+                for (const sa of (found.step_assets || [])) {
                     const aField = sa.asset
-                    const aId = aField && (typeof aField === 'string' ? aField : aField.id)
-                    return {
-                        stepAssetId: sa.id,
-                        model: aId,
-                        animation: sa.metadata?.animation,
+                    const aObj = (typeof aField === 'string') ? null : aField
+                    const aType = aObj?.type
+                    const role = sa.metadata?.role
+                    if (role === 'side-media' || aType === 'image' || aType === 'video') {
+                        mediaBlock = {
+                            assetId: aObj ? aObj.id : (typeof aField === 'string' ? aField : undefined),
+                            url: aObj?.url,
+                            type: aObj?.type,
+                            stepAssetId: sa.id,
+                            caption: sa.metadata?.caption,
+                            assetName: aObj?.originalFilename ?? aObj?.name,
+                        }
+                        break
                     }
-                })
+                }
+                // Build models array from all step_assets (support multiple models per step)
+                // Build models array from step_assets, excluding side-media (images/videos)
+                const models: ModelContainer[] = (found.step_assets || [])
+                    .filter((sa: any) => {
+                        const aField = sa.asset
+                        const aObj = aField && (typeof aField === 'string' ? null : aField)
+                        const aType = aObj?.type
+                        const role = sa.metadata?.role
+                        return !(role === 'side-media' || aType === 'image' || aType === 'video')
+                    })
+                    .map((sa: any) => {
+                        const aField = sa.asset
+                        const aId = aField && (typeof aField === 'string' ? aField : aField.id)
+                        return {
+                            stepAssetId: sa.id,
+                            model: aId,
+                            animation: sa.metadata?.animation,
+                        }
+                    })
                 
                 const s: Step = {
                     id: found.id,
@@ -88,6 +123,7 @@ export default function ConfigureStep() {
                     content: found.body,
                     animation: found.animation ?? undefined,
                     models: models.length > 0 ? models : undefined,
+                    media: mediaBlock,
                     // Legacy fields for backward compatibility
                     model: assetId,
                     modelName: undefined,
@@ -161,20 +197,38 @@ export default function ConfigureStep() {
         if (!step) return
         setIsSaving(true)
         try {
-            // Assign asset with metadata support for animation (will be set separately)
-            const res: any = await apiClient.assignAssetToStep(step.id, assetId, 0, { animation: undefined })
+            // Determine asset type and assign appropriately
             const asset = assets.find((a) => a.id === assetId)
-            const modelName = asset ? (asset.name ?? asset.originalFilename ?? '') : undefined
-            
-            // Add to models array or create if doesn't exist
-            const newModel: ModelContainer = { 
-                model: assetId, 
-                modelName, 
-                stepAssetId: res?.id,
-                animation: undefined 
+            const assetType = asset?.type || asset?.mimeType || ''
+            if (assetType === 'image' || assetType === 'video') {
+                // Assign as side-media (backend will mark step_asset.metadata.role='side-media')
+                const res: any = await apiClient.assignMediaToStep(step.id, assetId, {
+                    poster: undefined,
+                    autoplay: false,
+                    loop: false,
+                    caption: undefined,
+                })
+                const media = {
+                    assetId,
+                    url: asset?.url,
+                    type: asset?.type,
+                    stepAssetId: res?.id,
+                    caption: undefined,
+                }
+                setStep(prev => prev ? { ...prev, media } : prev)
+            } else {
+                // Default: assign as model (3D)
+                const res: any = await apiClient.assignAssetToStep(step.id, assetId, 0, { animation: undefined })
+                const modelName = asset ? (asset.name ?? asset.originalFilename ?? '') : undefined
+                const newModel: ModelContainer = { 
+                    model: assetId, 
+                    modelName, 
+                    stepAssetId: res?.id,
+                    animation: undefined 
+                }
+                const updated = step.models ? [...step.models, newModel] : [newModel]
+                setStep(prev => prev ? { ...prev, models: updated } : prev)
             }
-            const updated = step.models ? [...step.models, newModel] : [newModel]
-            setStep(prev => prev ? { ...prev, models: updated } : prev)
         } catch (err) {
             console.error('Failed to assign asset:', err)
             setError(`Failed to assign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -203,6 +257,18 @@ export default function ConfigureStep() {
                 } finally {
                     setIsSaving(false)
                 }
+            }
+        } else if (step.media && step.media.stepAssetId) {
+            // Unassign side-media
+            setIsSaving(true)
+            try {
+                await apiClient.deleteStepAsset(step.media.stepAssetId)
+                setStep(prev => prev ? { ...prev, media: undefined } : prev)
+            } catch (err) {
+                console.error('Failed to unassign media asset:', err)
+                setError(`Failed to unassign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            } finally {
+                setIsSaving(false)
             }
         } else if (step.stepAssetId) {
             // Legacy single model unassign

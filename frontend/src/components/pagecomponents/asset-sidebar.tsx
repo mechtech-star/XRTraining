@@ -102,15 +102,18 @@ export default function AssetSidebar({ models, onAssignModel, onDelete, onUpload
     setUploadError(null)
     const fileList = Array.from(files)
     const gltfFiles = fileList.filter((f) => f.name.endsWith('.glb') || f.name.endsWith('.gltf'))
+    const imageFiles = fileList.filter((f) => /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name))
+    const videoFiles = fileList.filter((f) => /\.(mp4|webm|ogg)$/i.test(f.name))
+    const allValid = [...gltfFiles, ...imageFiles, ...videoFiles]
 
-    if (gltfFiles.length === 0) {
-      setUploadError('Only .glb and .gltf files are supported')
+    if (allValid.length === 0) {
+      setUploadError('Only .glb, .gltf, image (.jpg, .png, .gif, .webp), and video (.mp4, .webm, .ogg) files are supported')
       return
     }
 
     setIsUploading(true)
     try {
-      for (const file of gltfFiles) {
+      for (const file of allValid) {
         const existing = models.find((m) => (m.name ?? m.originalFilename ?? '').toLowerCase() === file.name.toLowerCase())
         if (existing) {
           setConflict({ existing, file })
@@ -118,17 +121,26 @@ export default function AssetSidebar({ models, onAssignModel, onDelete, onUpload
           setConflictOpen(true)
           break
         }
+        
+        // Determine asset type
+        let assetType: 'gltf' | 'image' | 'video' = 'gltf'
+        if (imageFiles.includes(file)) assetType = 'image'
+        else if (videoFiles.includes(file)) assetType = 'video'
+        
         const toId = toast.loading(`Uploading ${file.name}...`)
         try {
           let metadata = null
-          try {
-            const animations = await parseGltfAnimations(file)
-            metadata = { animations }
-          } catch (e) {
-            console.warn('Failed to parse animations for', file.name, e)
+          // Parse animations only for GLTF files
+          if (assetType === 'gltf') {
+            try {
+              const animations = await parseGltfAnimations(file)
+              metadata = { animations }
+            } catch (e) {
+              console.warn('Failed to parse animations for', file.name, e)
+            }
           }
 
-          await apiClient.uploadAsset(file, 'gltf', metadata)
+          await apiClient.uploadAsset(file, assetType, metadata)
           toast.success(`${file.name} uploaded`, { id: toId })
         } catch (e) {
           toast.error(`Upload failed: ${file.name}`, { id: toId })
@@ -273,7 +285,7 @@ export default function AssetSidebar({ models, onAssignModel, onDelete, onUpload
               aria-label="Upload 3D models"
             >
               <div className="flex-1 flex flex-col items-center justify-center gap-3 w-full px-4">
-                <div className="text-sm font-medium text-foreground text-center">Drop .glb or .gltf files here</div>
+                <div className="text-sm font-medium text-foreground text-center">Drop 3D models, images, or videos here</div>
                 <div className="text-xs text-muted-foreground text-center">or click Upload</div>
 
                 <div className="mt-2">
@@ -283,7 +295,7 @@ export default function AssetSidebar({ models, onAssignModel, onDelete, onUpload
                   </Button>
                 </div>
 
-                <input ref={inputRef} type="file" accept=".glb,.gltf" multiple onChange={handleInputChange} style={{ display: 'none' }} />
+                <input ref={inputRef} type="file" accept=".glb,.gltf,.jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.ogg" multiple onChange={handleInputChange} style={{ display: 'none' }} />
               </div>
             </div>
 

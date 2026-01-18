@@ -9,6 +9,7 @@
     border-color: #27272a;
     border-width: 0.15;
     border-radius: 3;
+    
   }
 
   .heading {
@@ -23,6 +24,12 @@
     color: #a1a1aa;
     text-align: left;
     margin-top: 0.3;
+
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   #back-button {
@@ -56,16 +63,27 @@
   }
 
   .button-row {
+    display: flex;
+    flex-direction: row;
     gap: 2;
+    width: 100%;
+    margin-top: auto;
+    /* 👈 pushes buttons to bottom */
   }
 
 </style>
-<div class="panel-container">
+<div class="panel-container" style="height: 35;">
   <span class="heading">Step 1</span>
-  <span class="sub-heading"> Content 1</span>
-  <div class="button-row"
-    style="width: 100%; display: flex; justify-content: space-between; margin-top: 2;">
+
+  <div class="content">
+    <span class="sub-heading">
+      Content 1vihbhjklvjkfvbakj vgnacn vmscnvjkn n kjn jkn kjn jknkjnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+    </span>
+  </div>
+
+  <div class="button-row">
     <button id="back-button">Back</button>
     <button id="next-button">Next</button>
   </div>
 </div>
+

@@ -43,12 +43,22 @@ npm run dev
 - Delete steps
 - Auto-save on every change
 - Steps ordered by index
+ 
+### Engine (XR Runtime)
+```bash
+cd engine
+npm install
+# Node >= 20.19.0 is required. Dev server uses mkcert for TLS — ensure mkcert certificates exist.
+npm run dev
+```
+Then open `https://localhost:8081` (TLS) to view the runtime.
 
 ### ✅ Asset Upload & Assignment
 - Upload `.glb` and `.gltf` files via drag-drop
 - Files stored safely: `/media/assets/gltf/{uuid}/original.glb`
 - Assign models to steps
 - Priority ordering
+ - Runtime includes `models[]` per step for multi-model support
 
 ### ✅ Publishing Pipeline
 - Compile immutable runtime payloads
@@ -56,11 +66,26 @@ npm run dev
 - Atomic transactions
 - All steps + assets included in payload
 
+### ✅ Multiple Models Per Step
+- Assign multiple models to a single step; each assignment stores `metadata` (used for `animation`).
+- Frontend UI shows multiple model containers per step with animation dropdowns.
+- Backend publishes `models[]` and engine plays per-model animations on step activation.
+
 ### ✅ Error Handling
 - User-friendly error messages
 - Red notification boxes
 - API errors caught and logged
 - Loading states during operations
+
+### 🔔 What's New — Multiple Models Per Step
+- Support for assigning multiple GLTF/GLB models to a single step, each with its own selected animation clip.
+- Backend: `StepAsset.metadata` stores per-assignment metadata (e.g., `{ "animation": "Idle" }`). The publish pipeline includes a `models[]` array in the runtime payload containing `{ assetId, assetType, url, originalFilename, animation? }` for each assigned model.
+- API: Added `POST /api/steps/{stepId}/assets` (assign with optional `metadata`) and `PUT /api/step-assets/{id}` to update per-assignment metadata (used to set the selected animation).
+- Frontend: Step editor supports multiple model "containers" (repeat of the model card UI). Each container shows filename and an animation dropdown; choosing an animation updates the `StepAsset.metadata` via the API.
+- Engine: The runtime maps published assets into distinct manifest keys (e.g., `model_{assetId}`), loads each GLTF as its own entity, creates one `AnimationMixer` per model instance, and when a step is activated plays the selected animation for each model instance.
+- Backward compatibility: If a module only has a single model assigned, the engine falls back to the legacy `model` field so existing published modules continue to work.
+
+The minimal scope of this feature is intentionally focused: multiple model containers with a single selected animation per model. No per-model transforms or additional per-model behaviours were added in this iteration.
 
 ---
 
@@ -149,6 +174,7 @@ ASSET MANAGEMENT
 POST   /api/assets/upload           Upload 3D model (multipart)
 POST   /api/steps/{stepId}/assets   Assign asset to step
 DELETE /api/step-assets/{id}        Remove assignment
+PUT    /api/step-assets/{id}        Update assignment metadata (e.g., selected animation)
 
 PUBLISHING
 POST   /api/modules/{moduleId}/publish   Compile & publish

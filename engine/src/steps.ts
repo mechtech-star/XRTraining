@@ -47,6 +47,8 @@ export type Step = {
     id: string;
     stepNumber: number;
     ui: string | { uiUrl: string };
+    // optional media UI for image/video panel associated with this step
+    mediaUi?: string | { uiUrl: string } | Record<string, any> | null;
     panelOptions: PanelOptions | null;
     models: ModelEntry[];
     buttons: Record<string, ButtonAction>;

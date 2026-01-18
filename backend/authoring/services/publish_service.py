@@ -69,10 +69,28 @@ def compile_runtime_payload(module: Module) -> Dict:
             },
         }
         
+        # Add media block if image/video assets with role='side-media' are assigned
+        media_assets = [a for a in assets if a.get("type") in ("image", "video") and a.get("metadata", {}).get("role") == "side-media"]
+        if media_assets:
+            # Use the first side-media asset
+            media_asset = media_assets[0]
+            media_meta = media_asset.get("metadata", {})
+            step_data["media"] = {
+                "assetId": media_asset["id"],
+                "type": media_asset["type"],
+                "url": media_asset.get("url"),
+                "poster": media_meta.get("poster"),
+                "autoplay": media_meta.get("autoplay", False),
+                "loop": media_meta.get("loop", False),
+                "caption": media_meta.get("caption"),
+            }
+        
         # Add models[] for this step (support multiple assets per step)
-        if assets:
+        # Filter out side-media assets (they go in media block, not models)
+        model_assets = [a for a in assets if not (a.get("type") in ("image", "video") and a.get("metadata", {}).get("role") == "side-media")]
+        if model_assets:
             models = []
-            for a in assets:
+            for a in model_assets:
                 model_entry = {
                     "assetId": str(a["id"]),
                     "assetType": a["type"],
@@ -88,11 +106,11 @@ def compile_runtime_payload(module: Module) -> Dict:
             step_data["models"] = models
             # Legacy single-model field for backward compatibility (first asset)
             first_model = {
-                "assetId": str(assets[0]["id"]),
-                "assetType": assets[0]["type"],
+                "assetId": str(model_assets[0]["id"]),
+                "assetType": model_assets[0]["type"],
             }
-            if assets[0].get("metadata") and isinstance(assets[0].get("metadata"), dict):
-                animation = assets[0].get("metadata", {}).get("animation")
+            if model_assets[0].get("metadata") and isinstance(model_assets[0].get("metadata"), dict):
+                animation = model_assets[0].get("metadata", {}).get("animation")
                 if animation:
                     first_model["animation"] = animation
             step_data["model"] = first_model
@@ -147,16 +165,29 @@ def publish_module(module: Module) -> PublishedModule:
                         "sourceTag": "div",
                         "children": [
                             {
-                                "sourceTag": "span",
-                                "type": "custom",
-                                "children": [step.get("ui", {}).get("data", {}).get("title", "")],
-                                "properties": {"class": "heading"},
+                                "type": "container",
+                                "sourceTag": "div",
+                                "children": [
+                                    {
+                                        "sourceTag": "span",
+                                        "type": "custom",
+                                        "children": [step.get("ui", {}).get("data", {}).get("title", "")],
+                                        "properties": {"class": "heading"},
+                                    },
+                                    {
+                                        "sourceTag": "span",
+                                        "type": "custom",
+                                        "children": [step.get("ui", {}).get("data", {}).get("description", "")],
+                                        "properties": {"class": "sub-heading"},
+                                    }
+                                ],
+                                "properties": {"class": "top-content"},
                             },
                             {
-                                "sourceTag": "span",
-                                "type": "custom",
-                                "children": [step.get("ui", {}).get("data", {}).get("description", "")],
-                                "properties": {"class": "sub-heading"},
+                                "type": "container",
+                                "sourceTag": "div",
+                                "children": [],
+                                "properties": {"style": {"flexGrow": "1", "minHeight": "0"}, "class": "spacer"}
                             },
                             {
                                 "type": "container",
@@ -188,74 +219,112 @@ def publish_module(module: Module) -> PublishedModule:
                         ],
                         "properties": {"class": "panel-container"},
                     },
-                    "classes": {
-                        "panel-container": {
-                            "content": {
-                                "alignItems": "flex-start",
-                                "padding": "2",
-                                "width": "50",
-                                "display": "flex",
-                                "flexDirection": "column",
-                                "backgroundColor": "#09090b",
-                                "borderColor": "#27272a",
-                                "borderWidth": "0.15",
-                                "borderRadius": 3
-                            }
-                        },
-                        "heading": {
-                            "content": {
-                                "fontSize": "4",
-                                "fontWeight": "medium",
-                                "color": "#fafafa",
-                                "textAlign": "left"
-                            }
-                        },
-                        "sub-heading": {
-                            "content": {
-                                "fontSize": "2",
-                                "color": "#a1a1aa",
-                                "textAlign": "left",
-                                "marginTop": "0.3"
-                            }
-                        },
-                        "button-row": {
-                            "content": {"gap": "2"}
-                        },
-                        "__id__back-button": {
-                            "content": {
-                                "width": "100%",
-                                "padding": "1.5",
-                                "marginTop": "2",
-                                "backgroundColor": "#fafafa",
-                                "color": "#09090b",
-                                "borderRadius": 1.5,
-                                "borderWidth": "0.1",
-                                "borderColor": "#e4e4e7",
-                                "fontSize": "2.5",
-                                "fontWeight": "medium",
-                                "textAlign": "center",
-                                "cursor": "pointer"
-                            }
-                        },
-                        "__id__next-button": {
-                            "content": {
-                                "width": "100%",
-                                "padding": "1.5",
-                                "marginTop": "2",
-                                "backgroundColor": "#fafafa",
-                                "color": "#09090b",
-                                "borderRadius": 1.5,
-                                "borderWidth": "0.1",
-                                "borderColor": "#e4e4e7",
-                                "fontSize": "2.5",
-                                "fontWeight": "medium",
-                                "textAlign": "center",
-                                "cursor": "pointer"
-                            }
-                        }
-                    }
-                }
+                        "classes": {
+    "panel-container": {
+        "content": {
+        "display": "flex",
+        "flexDirection": "column",
+        "alignItems": "flex-start",
+        "justifyContent": "flex-start",
 
+            "gap": "1.5",
+            "padding": "1.5",
+
+            "width": "48",
+            "minHeight": "32",
+
+            "backgroundColor": "#09090b",
+            "borderColor": "#27272a",
+            "borderWidth": "0",
+            "borderRadius": "2",
+            "overflow": "hidden"
+        }
+    },
+    "top-content": {
+        "content": {
+            "display": "flex",
+            "flexDirection": "column",
+            "alignItems": "flex-start",
+            "justifyContent": "flex-start",
+            "gap": "1",
+        }
+    },
+
+  "heading": {
+    "content": {
+      "fontSize": "2.5",
+      "fontWeight": "medium",
+      "color": "#fafafa",
+      "textAlign": "left"
+    }
+  },
+
+  "sub-heading": {
+    "content": {
+      "fontSize": "1.4",
+      "color": "#a1a1aa",
+      "textAlign": "left"
+    }
+  },
+
+  "button-row": {
+    "content": {
+      "display": "flex",
+      "justifyContent": "space-between",
+      "alignItems": "center",
+      "gap": "1"
+    },
+    "style": {
+      "width": "100%"
+    }
+  },
+    "spacer": {
+        "content": {
+            "flexGrow": "1",
+            "minHeight": "0"
+        }
+    },
+
+  "__id__back-button": {
+    "content": {
+      "width": "11",
+      "padding": "1.25",
+
+      "backgroundColor": "#fafafa",
+      "color": "#09090b",
+
+      "borderRadius": "1.25",
+      "borderWidth": "0",
+      "borderColor": "#e4e4e7",
+
+      "fontSize": "2.25",
+      "fontWeight": "medium",
+      "textAlign": "center",
+      "cursor": "pointer"
+    }
+  },
+
+  "__id__next-button": {
+    "content": {
+      "width": "11",
+      "padding": "1.25",
+
+      "backgroundColor": "#fafafa",
+      "color": "#09090b",
+
+      "borderRadius": "1.25",
+      "borderWidth": "0",
+      "borderColor": "#e4e4e7",
+
+      "fontSize": "2.25",
+      "fontWeight": "medium",
+      "textAlign": "center",
+      "cursor": "pointer"
+    }
+  }
+}
+
+                }
                 step_filename = f"{slug}-{module.id}-step-{step.get('orderIndex')}.json"
                 step_path = os.path.join(out_dir, step_filename)
                 with open(step_path, "w", encoding="utf-8") as sf:

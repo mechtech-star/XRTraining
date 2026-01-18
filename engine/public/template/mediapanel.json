@@ -1,0 +1,61 @@
+{
+  "element": {
+    "type": "container",
+    "sourceTag": "div",
+    "children": [
+      {
+        "type": "image",
+        "sourceTag": "img",
+        "properties": {
+          "id": "primary-image",
+          "src": "/textures/webxr.png",
+          "alt": "Media content"
+        },
+        "dataUid": "uid-2"
+      }
+    ],
+    "properties": {
+      "class": "panel-root",
+      "mediaPanel": true
+    },
+    "dataUid": "uid-1"
+  },
+  "classes": {
+    "panel-root": {
+      "content": {
+        "display": "flex",
+        "flexDirection": "column",
+        "alignItems": "center",
+        "justifyContent": "center",
+
+        "width": "9",
+        "minWidth": "25",
+        "height": "100%",
+        "minHeight": "25",
+
+        "paddingTop": "1.5",
+        "paddingBottom": "1.5",
+        "paddingLeft": "1.5",
+        "paddingRight": "1.5",
+
+        "backgroundColor": "#0b0b0f",
+        "borderColor": "#27272a",
+        "borderWidth": "0.04",
+        "borderStyle": "solid",
+        "borderRadius": "0.8"
+      }
+    },
+
+    "__id__primary-image": {
+      "content": {
+        "width": "100%",
+        "height": "100%",
+
+        "objectFit": "contain",
+
+        "borderRadius": "0.8",
+        "backgroundColor": "#000000"
+      }
+    }
+  }
+}

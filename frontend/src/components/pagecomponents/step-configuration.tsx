@@ -167,8 +167,34 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
                   </div>
                 </div>
 
-                {/* Render model/animation containers (support multiple models per step) */}
-                <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
+                {/* Render media preview (if present) and model/animation containers (support multiple models per step) */}
+                <div className="mt-3 flex flex-col gap-3 text-sm text-muted-foreground">
+                  {/* media preview */}
+                  {(() => {
+                    const media = (step as any).media
+                    if (!media) return null
+                    return (
+                      <div className="w-64 bg-card rounded-md overflow-hidden flex flex-col items-center text-xs text-muted-foreground p-2 border border-dashed border-border/30">
+                        <div className="w-full mb-2">
+                          {media.type === 'video' ? (
+                            <video src={media.url} poster={media.poster} controls className="w-full rounded" />
+                          ) : (
+                            <img src={media.url} alt={media.caption || 'media'} className="w-full rounded" />
+                          )}
+                        </div>
+                            <div className="w-full flex items-center justify-between">
+                              <div className="text-sm font-semibold text-foreground">{media.assetName ?? media.type}</div>
+                          <div>
+                            <Button onClick={(e) => { e.stopPropagation(); if (onUnassign) onUnassign(idx) }} variant="ghost" size="icon-sm" title="Unassign media">
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* models */}
                   {(() => {
                     const containers = step.models && step.models.length > 0 ? step.models : (step.model ? [{ model: step.model, modelName: step.modelName, animation: step.animation, stepAssetId: step.stepAssetId }] : [])
                     return containers.length === 0 ? (
