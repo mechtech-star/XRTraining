@@ -8,10 +8,18 @@ import {
 } from '../ui/dropdown-menu'
 import { Button } from '../ui/button'
 
+type ModelContainer = {
+  stepAssetId?: string
+  model?: string
+  modelName?: string
+  animation?: string
+}
+
 type Step = {
   id: string
   title: string
   content: string
+  models?: ModelContainer[]
   model?: string
   modelName?: string
   animation?: string
@@ -22,7 +30,8 @@ interface StepConfigurationProps {
   selectedIndex?: number | null
   onSelect?: (index: number) => void
   onUpdate?: (index: number, patch: Partial<Step>) => void
-  onUnassign?: (index: number) => void
+  onUnassign?: (index: number, containerIndex?: number) => void
+  onAnimationUpdate?: (containerIndex: number, animation: string) => void
   onRemove?: (index: number) => void
   indexOffset?: number
   centerSingle?: boolean
@@ -30,7 +39,7 @@ interface StepConfigurationProps {
   assets?: Array<{ id: string; name?: string; originalFilename?: string; metadata?: any }>
 }
 
-export default function StepConfiguration({ steps = [], selectedIndex = null, onSelect, onUpdate, onUnassign, onRemove, indexOffset = 0, centerSingle = false, isSaving = false, assets = [] }: StepConfigurationProps) {
+export default function StepConfiguration({ steps = [], selectedIndex = null, onSelect, onUpdate, onUnassign, onAnimationUpdate, onRemove, indexOffset = 0, centerSingle = false, isSaving = false, assets = [] }: StepConfigurationProps) {
   const selectedStep = selectedIndex === null ? null : steps[selectedIndex]
   const cardFillClass = centerSingle ? 'w-full' : ''
 
@@ -44,6 +53,7 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
   })
   const debounceTimers = useRef<{ [key: string]: NodeJS.Timeout }>({})
   const initializedSteps = useRef<Set<string>>(new Set())
+  const processedModels = useRef<Set<string>>(new Set())
 
   // Only sync new steps that haven't been initialized yet
   useEffect(() => {
@@ -80,25 +90,38 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
     }
   }, [])
 
-  // Ensure that when a model with animations is assigned, a default animation
-  // is selected if none exists yet. Do this as an effect to avoid side-effects
-  // during render.
+  // When a model with animations is assigned, auto-select first animation if not set yet
+  // Only run this once per model to avoid overwriting saved animations on refresh
   useEffect(() => {
-    if (!onUpdate) return
+    if (!onAnimationUpdate) return
     if (!steps || steps.length === 0) return
     if (!assets || assets.length === 0) return
 
     steps.forEach((step, idx) => {
-      if (!step) return
-      if (!step.model) return
-      const asset = assets.find((a) => a.id === step.model)
-      const animations = asset?.metadata?.animations || []
-      if (animations.length > 0 && !step.animation) {
-        // pick first animation by default
-        onUpdate(idx, { animation: animations[0].name || '' })
-      }
+      if (!step || !step.models) return
+      step.models.forEach((model, mIdx) => {
+        if (!model || !model.model) return
+        
+        // Create unique key for this model assignment
+        const modelKey = `${step.id}-${model.model}`
+        
+        // Skip if already processed
+        if (processedModels.current.has(modelKey)) return
+        
+        const asset = assets.find((a) => a.id === model.model)
+        const animations = asset?.metadata?.animations || []
+        
+        // Only auto-select if there are animations and no animation is set
+        if (animations.length > 0 && !model.animation) {
+          processedModels.current.add(modelKey)
+          onAnimationUpdate(mIdx, animations[0].name || '')
+        } else if (model.animation || animations.length === 0) {
+          // Mark as processed even if animation already exists or no animations available
+          processedModels.current.add(modelKey)
+        }
+      })
     })
-  }, [steps, assets, onUpdate])
+  }, [steps, assets, onAnimationUpdate])
 
   return (
     <div className="mb-6">
@@ -144,88 +167,93 @@ export default function StepConfiguration({ steps = [], selectedIndex = null, on
                   </div>
                 </div>
 
-                {/* Render model/animation inside the card (combined square container) */}
-                <div className="mt-3 flex items-start text-sm text-muted-foreground">
-                  <div className="w-64 bg-card rounded-md overflow-hidden flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed border-border/30">
-                    {step.model ? (
-                      <div className="w-full h-full flex flex-col justify-between">
-                        <div className="flex items-center gap-4 w-full bg-muted rounded-md">
-                          <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-md">
-                            <Box className="w-4 h-4 text-muted-foreground" />
+                {/* Render model/animation containers (support multiple models per step) */}
+                <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
+                  {(() => {
+                    const containers = step.models && step.models.length > 0 ? step.models : (step.model ? [{ model: step.model, modelName: step.modelName, animation: step.animation, stepAssetId: step.stepAssetId }] : [])
+                    return containers.length === 0 ? (
+                      <div className="w-64 bg-card rounded-md overflow-hidden flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed border-border/30">
+                        <div className="text-center">
+                          <div className="flex items-center justify-center w-12 h-12 bg-muted rounded-md mx-auto mb-3">
+                            <Box className="w-6 h-6 text-muted-foreground" />
                           </div>
-
-                          <div className="text-left ml-0.5">
-                            <div className="font-semibold text-foreground">{(step as any).modelName ?? step.model}</div>
-                          </div>
-
-                          <div className="ml-auto">
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (onUnassign) return onUnassign(idx)
-                                onUpdate && onUpdate(idx, { model: undefined })
-                              }}
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Unassign model"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="mt-2 flex items-center gap-3 w-full bg-muted rounded-md">
-                          {(() => {
-                            const asset = (assets || []).find((a) => a.id === step.model)
-                            const animations = asset?.metadata?.animations || []
-                            return (
-                              <div className="flex items-center gap-3 w-full">
-                                <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-md">
-                                  <Play className="w-4 h-4 text-muted-foreground ml-2" />
-                                </div>
-
-                                <div className="text-left w-full">
-                                  {animations.length === 0 ? (
-                                    <div className="pl-2 text-xs text-muted-foreground">no animation</div>
-                                  ) : (
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button onClick={(e) => e.stopPropagation()} variant="ghost" size="sm" className="w-full justify-between px-2 hover:bg-accent/5">
-                                          <div className="flex items-center">
-                                            <span className="text-xs text-left">{(step as any).animation || '(none)'}</span>
-                                          </div>
-                                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-
-                                      <DropdownMenuContent sideOffset={6} align="start">
-                                        <DropdownMenuItem onSelect={() => { onUpdate && onUpdate(idx, { animation: '' }) }}>
-                                          (none)
-                                        </DropdownMenuItem>
-                                        {animations.map((a: any, i: number) => (
-                                          <DropdownMenuItem key={i} onSelect={() => { onUpdate && onUpdate(idx, { animation: a.name }) }}>
-                                            {a.name || `clip-${i}`}
-                                          </DropdownMenuItem>
-                                        ))}
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  )}
-                                </div>
-                              </div>
-                            )
-                          })()}
+                          <div className="text-sm font-semibold text-foreground mb-1">No 3D model assigned</div>
+                          <div className="text-xs text-muted-foreground mb-3">Assign a .glb/.gltf model from the Asset Manager</div>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center w-12 h-12 bg-muted rounded-md mx-auto mb-3">
-                          <Box className="w-6 h-6 text-muted-foreground" />
+                      containers.map((container, cIdx) => (
+                        <div key={cIdx} className="w-64 bg-card rounded-md overflow-hidden flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed border-border/30">
+                          {container.model ? (
+                            <div className="w-full h-full flex flex-col justify-between">
+                              <div className="flex items-center gap-4 w-full bg-muted rounded-md">
+                                <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-md">
+                                  <Box className="w-4 h-4 text-muted-foreground" />
+                                </div>
+                                <div className="text-left ml-0.5">
+                                  <div className="font-semibold text-foreground">{container.modelName ?? container.model}</div>
+                                </div>
+                                <div className="ml-auto">
+                                  <Button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (onUnassign) return onUnassign(idx, cIdx)
+                                    }}
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    title="Unassign model"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              <div className="mt-2 flex items-center gap-3 w-full bg-muted rounded-md">
+                                {(() => {
+                                  const asset = (assets || []).find((a) => a.id === container.model)
+                                  const animations = asset?.metadata?.animations || []
+                                  return (
+                                    <div className="flex items-center gap-3 w-full">
+                                      <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-md">
+                                        <Play className="w-4 h-4 text-muted-foreground ml-2" />
+                                      </div>
+                                      <div className="text-left w-full">
+                                        {animations.length === 0 ? (
+                                          <div className="pl-2 text-xs text-muted-foreground">no animation</div>
+                                        ) : (
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <Button onClick={(e) => e.stopPropagation()} variant="ghost" size="sm" className="w-full justify-between px-2 hover:bg-accent/5">
+                                                <div className="flex items-center">
+                                                  <span className="text-xs text-left">{container.animation || '(none)'}</span>
+                                                </div>
+                                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                              </Button>
+                                            </DropdownMenuTrigger>
+
+                                            <DropdownMenuContent sideOffset={6} align="start">
+                                              <DropdownMenuItem onSelect={() => { onAnimationUpdate && onAnimationUpdate(cIdx, '') }}>
+                                                (none)
+                                              </DropdownMenuItem>
+                                              {animations.map((a: any, i: number) => (
+                                                <DropdownMenuItem key={i} onSelect={() => { onAnimationUpdate && onAnimationUpdate(cIdx, a.name) }}>
+                                                  {a.name || `clip-${i}`}
+                                                </DropdownMenuItem>
+                                              ))}
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })()}
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
-                        <div className="text-sm font-semibold text-foreground mb-1">No 3D model assigned</div>
-                        <div className="text-xs text-muted-foreground mb-3">Assign a .glb/.gltf model from the Asset Manager</div>
-                      </div>
-                    )}
-                  </div>
+                      ))
+                    )
+                  })()}
                 </div>
               </React.Fragment>
             ))}

@@ -9,6 +9,7 @@ class StepAsset(models.Model):
     step = models.ForeignKey(Step, on_delete=models.CASCADE, related_name="step_assets")
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="asset_steps")
     priority = models.IntegerField(default=0)
+    metadata = models.JSONField(null=True, blank=True)
 
     class Meta:
         ordering = ["priority", "id"]

@@ -7,7 +7,7 @@ class StepAssetInlineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StepAsset
-        fields = ["id", "asset", "priority"]
+        fields = ["id", "asset", "priority", "metadata"]
 
 
 class StepSerializer(serializers.ModelSerializer):

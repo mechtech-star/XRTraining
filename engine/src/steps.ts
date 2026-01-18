@@ -29,12 +29,26 @@ export type ButtonAction =
     | { action: "launchXR" }
     | { action: "launchOrGoto"; target: string };
 
+export type ModelEntry = {
+    // key matches an AssetManifest key (e.g. 'model' or 'model_<assetId>')
+    key?: string;
+    assetId?: string;
+    url?: string;
+    animation?: string | null;
+    slot?: string;
+    transform?: {
+        position?: { x: number; y: number; z: number };
+        rotation?: { x: number; y: number; z: number };
+        scale?: { x: number; y: number; z: number };
+    };
+};
+
 export type Step = {
     id: string;
     stepNumber: number;
     ui: string | { uiUrl: string };
     panelOptions: PanelOptions | null;
-    assets: Record<string, { animation: string | null }>;
+    models: ModelEntry[];
     buttons: Record<string, ButtonAction>;
 };
 
@@ -51,9 +65,9 @@ export function createSteps(moduleId: string = DEFAULT_PUBLISHED_MODULE_ID): Ste
             stepNumber: 0,
             ui: { uiUrl: publishedModuleUrl(moduleId, 1) },
             panelOptions: PANEL_CONFIG,
-            assets: {
-                model: { animation: "cubeanimation1" },
-            },
+            models: [
+                { key: 'model', animation: "cubeanimation1" },
+            ],
             buttons: {} as Record<string, ButtonAction>,
         },
         {
@@ -61,9 +75,9 @@ export function createSteps(moduleId: string = DEFAULT_PUBLISHED_MODULE_ID): Ste
             stepNumber: 1,
             ui: { uiUrl: publishedModuleUrl(moduleId, 2) },
             panelOptions: PANEL_CONFIG,
-            assets: {
-                model: { animation: "cubeanimation2" },
-            },
+            models: [
+                { key: 'model', animation: "cubeanimation2" },
+            ],
             buttons: {} as Record<string, ButtonAction>,
         },
         {
@@ -71,9 +85,9 @@ export function createSteps(moduleId: string = DEFAULT_PUBLISHED_MODULE_ID): Ste
             stepNumber: 3,
             ui: { uiUrl: publishedModuleUrl(moduleId, 3) },
             panelOptions: PANEL_CONFIG,
-            assets: {
-                model: { animation: "cubeanimation2" },
-            },
+            models: [
+                { key: 'model', animation: "cubeanimation2" },
+            ],
             buttons: {} as Record<string, ButtonAction>,
         },
         {
@@ -81,9 +95,9 @@ export function createSteps(moduleId: string = DEFAULT_PUBLISHED_MODULE_ID): Ste
             stepNumber: 4,
             ui: { uiUrl: publishedModuleUrl(moduleId, 4) },
             panelOptions: PANEL_CONFIG,
-            assets: {
-                model: { animation: "cubeanimation2" },
-            },
+            models: [
+                { key: 'model', animation: "cubeanimation2" },
+            ],
             buttons: {} as Record<string, ButtonAction>,
         },
     ];
@@ -126,55 +140,94 @@ export function createModelSystem(steps: Step[]) {
     })();
 
     return class ModelSystem extends createSystem(MODEL_QUERIES) {
-    private mixer?: AnimationMixer;
-    private actions = new Map<string, any>();
-    private modelObject?: any;
+    private mixers: Record<string, any> = {};
+    private actionsMap: Record<string, Map<string, any>> = {};
+    private modelObjects: Record<string, any> = {};
+    private instances: Record<string, any> = {};
 
     init() {
-        const gltf = AssetManager.getGLTF("model");
-        if (!gltf) return;
-
-        const scene = gltf.scene;
-        scene.visible = false;
-        this.modelObject = scene;
-
-        this.world.createTransformEntity(scene).addComponent(Model);
-
-        this.mixer = new AnimationMixer(scene as any);
-        if (gltf.animations) {
-            gltf.animations.forEach((clip: any) => {
-                const action = this.mixer!.clipAction(clip);
-                this.actions.set(clip.name, action);
+        // collect unique asset keys referenced by steps (default to 'model')
+        const keys = new Set<string>();
+        steps.forEach(step => {
+            (step.models || []).forEach((m) => {
+                if (m.key) keys.add(m.key);
             });
-        }
+        });
+        keys.add('model');
 
+        keys.forEach((key) => {
+            const gltf = AssetManager.getGLTF(key as any);
+            if (!gltf) return;
+            const scene = gltf.scene;
+            scene.visible = false;
+            this.modelObjects[key] = scene;
+            const entity = this.world.createTransformEntity(scene).addComponent(Model);
+            this.instances[key] = entity;
+
+            const mixer = new AnimationMixer(scene as any);
+            this.mixers[key] = mixer;
+            this.actionsMap[key] = new Map<string, any>();
+            if (gltf.animations) {
+                gltf.animations.forEach((clip: any) => {
+                    const action = mixer.clipAction(clip);
+                    this.actionsMap[key].set(clip.name, action);
+                });
+            }
+        });
+
+        // wire step qualify behavior: show/hide and play per-step models
         steps.forEach((step) => {
             const stepKey = step.id;
             const q = (this.queries as any)[stepKey];
             if (!q) return;
-            const actionNameForStep = step.assets.model?.animation ?? null;
             q.subscribe("qualify", () => {
-                if (!this.modelObject) return;
-                if (!actionNameForStep) {
-                    this.modelObject.visible = false;
-                    this.actions.forEach((a) => a.stop());
-                    return;
-                }
-                this.modelObject.visible = true;
-                const action = this.actions.get(actionNameForStep);
-                if (action) {
-                    this.actions.forEach((a, name) => {
-                        if (name !== actionNameForStep) a.stop();
-                    });
-                    action.reset();
-                    action.play();
-                }
+                const stepModelKeys = (step.models || []).map(m => m.key || 'model');
+
+                Object.keys(this.instances).forEach((k) => {
+                    const obj = this.modelObjects[k];
+                    const ent = this.instances[k];
+                    const actions = this.actionsMap[k];
+
+                    const belongs = stepModelKeys.includes(k);
+                    if (belongs) {
+                        if (obj) obj.visible = true;
+                        const entry = (step.models || []).find(m => (m.key || 'model') === k) as ModelEntry | undefined;
+                        if (entry && entry.transform && ent && ent.object3D) {
+                            const pos = entry.transform.position;
+                            if (pos) ent.object3D.position.set(pos.x, pos.y, pos.z);
+                            const rot = entry.transform.rotation;
+                            if (rot) ent.object3D.rotation.set(rot.x, rot.y, rot.z);
+                            const scl = entry.transform.scale;
+                            if (scl) ent.object3D.scale.set(scl.x, scl.y, scl.z);
+                        }
+
+                        const actionName = entry?.animation ?? null;
+                        if (!actionName) {
+                            actions?.forEach((a) => a.stop());
+                        } else {
+                            const action = actions?.get(actionName);
+                            if (action) {
+                                actions?.forEach((a, name) => {
+                                    if (name !== actionName) a.stop();
+                                });
+                                action.reset();
+                                action.play();
+                            }
+                        }
+                    } else {
+                        if (obj) obj.visible = false;
+                        actions?.forEach((a) => a.stop());
+                    }
+                });
             });
         });
     }
 
     update(delta: number) {
-        if (this.mixer) this.mixer.update(delta);
+        Object.keys(this.mixers).forEach((k) => {
+            const m = this.mixers[k];
+            if (m) m.update(delta);
+        });
     }
 };
 }

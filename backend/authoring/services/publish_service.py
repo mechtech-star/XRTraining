@@ -39,13 +39,17 @@ def compile_runtime_payload(module: Module) -> Dict:
                 "type": asset.type,
                 "mimeType": asset.mime_type,
                 "url": asset.file.url if asset.file else None,
+                "originalFilename": asset.original_filename,
                 "priority": sa.priority,
+                "metadata": sa.metadata,
             })
             asset_refs[str(asset.id)] = {
                 "id": str(asset.id),
                 "type": asset.type,
                 "mimeType": asset.mime_type,
                 "url": asset.file.url if asset.file else None,
+                "originalFilename": asset.original_filename,
+                "metadata": sa.metadata,
             }
         
         # Build data-only runtime payload for this step
@@ -65,14 +69,35 @@ def compile_runtime_payload(module: Module) -> Dict:
             },
         }
         
-        # Add model reference if step has assets
+        # Add models[] for this step (support multiple assets per step)
         if assets:
-            step_data["model"] = {
+            models = []
+            for a in assets:
+                model_entry = {
+                    "assetId": str(a["id"]),
+                    "assetType": a["type"],
+                    "url": a.get("url"),
+                    "originalFilename": a.get("originalFilename") if a.get("originalFilename") else None,
+                }
+                # Extract animation from asset metadata if present
+                if a.get("metadata") and isinstance(a.get("metadata"), dict):
+                    animation = a.get("metadata", {}).get("animation")
+                    if animation:
+                        model_entry["animation"] = animation
+                models.append(model_entry)
+            step_data["models"] = models
+            # Legacy single-model field for backward compatibility (first asset)
+            first_model = {
                 "assetId": str(assets[0]["id"]),
                 "assetType": assets[0]["type"],
             }
-        
-        # Add animation if specified
+            if assets[0].get("metadata") and isinstance(assets[0].get("metadata"), dict):
+                animation = assets[0].get("metadata", {}).get("animation")
+                if animation:
+                    first_model["animation"] = animation
+            step_data["model"] = first_model
+
+        # Add animation if specified on the step; include as step-level animation
         if step.animation:
             step_data["animation"] = {
                 "clip": step.animation,

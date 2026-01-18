@@ -194,12 +194,21 @@ class ApiClient {
   }
 
   // Step Asset Assignment API
-  async assignAssetToStep(stepId: string, assetId: string, priority = 0) {
+  // Assign an existing Asset to a Step. Optionally include per-step metadata
+  // such as animation clip, slot name, or transform. Backend may ignore
+  // unknown fields until server-side support is added.
+  async assignAssetToStep(
+    stepId: string,
+    assetId: string,
+    priority = 0,
+    metadata?: { animation?: string; slot?: string; transform?: any }
+  ) {
     return this.request(`/steps/${stepId}/assets`, {
       method: 'POST',
       body: JSON.stringify({
         assetId,
         priority,
+        metadata: metadata || null,
       }),
     })
   }
@@ -210,10 +219,26 @@ class ApiClient {
     })
   }
 
+  async updateStepAssetMetadata(stepAssetId: string, metadata: any) {
+    return this.request(`/step-assets/${stepAssetId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ metadata }),
+    })
+  }
+
   // Publish API
   async publishModule(moduleId: string) {
     return this.request(`/modules/${moduleId}/publish`, {
       method: 'POST',
+    })
+  }
+
+  // Update step models in bulk (client-side helper). Backend must support
+  // consuming this shape (e.g., via a dedicated endpoint) for changes to persist.
+  async setStepModels(stepId: string, models: Array<any>) {
+    return this.request(`/steps/${stepId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ models }),
     })
   }
 

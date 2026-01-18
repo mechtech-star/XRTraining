@@ -17,9 +17,8 @@ type Step = {
     id: string
     title: string
     content: string
-    model?: string
-    modelName?: string
-    stepAssetId?: string
+    // support multiple models per step
+    models?: Array<{ assetId: string; stepAssetId?: string; metadata?: any }>
     animation?: string
 }
 
@@ -97,18 +96,17 @@ export default function CreateModule() {
             const module = await apiClient.getModule(moduleId)
             // Transform module steps to local format
             const moduleSteps: Step[] = module.steps.map((step: any) => {
-                const assetEntry = step.step_assets?.[0]
-                const assetField = assetEntry?.asset
-                const assetId = assetField && (typeof assetField === 'string' ? assetField : assetField.id)
-                const stepAssetId = assetEntry?.id
+                const assets = (step.step_assets || []).map((sa: any) => ({
+                    assetId: sa.asset && (typeof sa.asset === 'string' ? sa.asset : sa.asset.id),
+                    stepAssetId: sa.id,
+                    metadata: sa.metadata ?? null,
+                }))
                 return {
                     id: step.id,
                     title: step.title,
                     content: step.body,
                     animation: step.animation ?? undefined,
-                    model: assetId,
-                    modelName: undefined,
-                    stepAssetId,
+                    models: assets,
                 }
             })
             setSteps(moduleSteps)
@@ -214,16 +212,17 @@ export default function CreateModule() {
         try {
             // assign to each target and collect results
             await Promise.all(targets.map(async (t) => {
-                const res: any = await apiClient.assignAssetToStep(t.id, assetId, 0)
+                const res: any = await apiClient.assignAssetToStep(t.id, assetId, 0, null)
                 return { stepId: t.id, res }
             }))
 
-            // update local state for affected steps
+            // update local state for affected steps (append model entry)
             setSteps((prev) => prev.map((s) => {
                 if (!targets.find((t) => t.id === s.id)) return s
                 const asset = assets.find((a) => a.id === assetId)
-                const modelName = asset ? (asset.name ?? asset.originalFilename ?? '') : undefined
-                return { ...s, model: assetId, modelName, stepAssetId: undefined }
+                const modelEntry = { assetId, stepAssetId: undefined, metadata: null }
+                const nextModels = Array.isArray(s.models) ? [...s.models, modelEntry] : [modelEntry]
+                return { ...s, models: nextModels }
             }))
 
             // exit multi-select mode after assign
@@ -239,18 +238,21 @@ export default function CreateModule() {
         }
     }
 
-    async function unassignModel(index: number) {
+    // Unassign a specific model from a step by stepAssetId (server) or assetId (local-only)
+    async function unassignModel(index: number, assetId?: string, stepAssetId?: string) {
         const step = steps[index]
         if (!step) return
-        if (!step.stepAssetId) {
-            // nothing to unassign on server, just clear locally
-            updateStep(index, { model: undefined, modelName: undefined, stepAssetId: undefined, animation: undefined })
+        // If no server id, just remove locally
+        if (!stepAssetId) {
+            const nextModels = (step.models || []).filter((m) => m.assetId !== assetId)
+            updateStep(index, { models: nextModels })
             return
         }
         setIsSaving(true)
         try {
-            await apiClient.deleteStepAsset(step.stepAssetId)
-            updateStep(index, { model: undefined, modelName: undefined, stepAssetId: undefined, animation: undefined })
+            await apiClient.deleteStepAsset(stepAssetId)
+            const nextModels = (step.models || []).filter((m) => m.stepAssetId !== stepAssetId)
+            updateStep(index, { models: nextModels })
         } catch (err) {
             console.error('Failed to unassign asset:', err)
             setError(`Failed to unassign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)

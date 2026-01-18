@@ -6,8 +6,7 @@ type Step = {
   id: string
   title: string
   content: string
-  model?: string
-  modelName?: string
+  models?: Array<{ assetId: string; stepAssetId?: string; metadata?: any }>
   animation?: string
 }
 
@@ -94,22 +93,36 @@ export default function StepCard(props: StepCardProps) {
                 <Box className="w-4 h-4 text-muted-foreground" />
               </div>
               <div className="flex-1">
-                <div className="font-medium text-foreground">{(step as any).modelName ?? step.model ?? '3D Model'}</div>
+                {/* Render assigned models list */}
+                {Array.isArray((step as any).models) && (step as any).models.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    {(step as any).models.map((m: any) => {
+                      const asset = assets.find((a) => a.id === m.assetId)
+                      const name = asset ? (asset.name ?? asset.originalFilename ?? m.assetId) : m.assetId
+                      return (
+                        <div key={m.assetId} className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-medium text-foreground">{name}</div>
+                          <div>
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (onUnassign) return onUnassign(index, m.assetId, m.stepAssetId)
+                              }}
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Unassign model"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="font-medium text-foreground">3D Model</div>
+                )}
               </div>
-              {step.model && (
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (onUnassign) return onUnassign(index)
-                    onUpdate && onUpdate(index, { model: undefined })
-                  }}
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Unassign model"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
             </div>
           </div>
         </div>

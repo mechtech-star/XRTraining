@@ -6,10 +6,19 @@ import Header from '../../components/pagecomponents/header'
 import StepConfiguration from '../../components/pagecomponents/step-configuration'
 import { apiClient } from '../../lib/api'
 
+type ModelContainer = {
+    stepAssetId?: string
+    model?: string
+    modelName?: string
+    animation?: string
+}
+
 type Step = {
     id: string
     title: string
     content: string
+    models?: ModelContainer[]
+    // Legacy single model support
     model?: string
     modelName?: string
     stepAssetId?: string
@@ -61,11 +70,25 @@ export default function ConfigureStep() {
                 const assetField = assetEntry?.asset
                 const assetId = assetField && (typeof assetField === 'string' ? assetField : assetField.id)
                 const stepAssetId = assetEntry?.id
+                
+                // Build models array from all step_assets (support multiple models per step)
+                const models: ModelContainer[] = (found.step_assets || []).map((sa: any) => {
+                    const aField = sa.asset
+                    const aId = aField && (typeof aField === 'string' ? aField : aField.id)
+                    return {
+                        stepAssetId: sa.id,
+                        model: aId,
+                        animation: sa.metadata?.animation,
+                    }
+                })
+                
                 const s: Step = {
                     id: found.id,
                     title: found.title,
                     content: found.body,
                     animation: found.animation ?? undefined,
+                    models: models.length > 0 ? models : undefined,
+                    // Legacy fields for backward compatibility
                     model: assetId,
                     modelName: undefined,
                     stepAssetId,
@@ -93,10 +116,24 @@ export default function ConfigureStep() {
     useEffect(() => {
         if (!assets || assets.length === 0) return
         if (!step) return
-        if (!step.model) return
-        const asset = assets.find((a) => a.id === step.model)
-        const name = asset ? (asset.name ?? asset.originalFilename ?? '') : ''
-        if (name && step.modelName !== name) setStep((s) => s ? { ...s, modelName: name } : s)
+        
+        // Update model names for all models in the step
+        if (step.models && step.models.length > 0) {
+            const updated = step.models.map(m => {
+                if (!m.model || m.modelName) return m
+                const asset = assets.find((a) => a.id === m.model)
+                const name = asset ? (asset.name ?? asset.originalFilename ?? '') : ''
+                return { ...m, modelName: name }
+            })
+            if (JSON.stringify(updated) !== JSON.stringify(step.models)) {
+                setStep(s => s ? { ...s, models: updated } : s)
+            }
+        } else if (!step.models && step.model) {
+            // Legacy single model support
+            const asset = assets.find((a) => a.id === step.model)
+            const name = asset ? (asset.name ?? asset.originalFilename ?? '') : ''
+            if (name && step.modelName !== name) setStep((s) => s ? { ...s, modelName: name } : s)
+        }
     }, [assets, step])
 
     async function updateStep(_index: number, patch: Partial<Step>) {
@@ -124,11 +161,20 @@ export default function ConfigureStep() {
         if (!step) return
         setIsSaving(true)
         try {
-            const res: any = await apiClient.assignAssetToStep(step.id, assetId, 0)
+            // Assign asset with metadata support for animation (will be set separately)
+            const res: any = await apiClient.assignAssetToStep(step.id, assetId, 0, { animation: undefined })
             const asset = assets.find((a) => a.id === assetId)
             const modelName = asset ? (asset.name ?? asset.originalFilename ?? '') : undefined
-            const next = { ...step, model: assetId, modelName, stepAssetId: res?.id }
-            setStep(next)
+            
+            // Add to models array or create if doesn't exist
+            const newModel: ModelContainer = { 
+                model: assetId, 
+                modelName, 
+                stepAssetId: res?.id,
+                animation: undefined 
+            }
+            const updated = step.models ? [...step.models, newModel] : [newModel]
+            setStep(prev => prev ? { ...prev, models: updated } : prev)
         } catch (err) {
             console.error('Failed to assign asset:', err)
             setError(`Failed to assign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -137,19 +183,64 @@ export default function ConfigureStep() {
         }
     }
 
-    async function unassignModel(_index: number) {
+    async function unassignModel(_index: number, containerIndex?: number) {
         if (!step) return
-        if (!step.stepAssetId) {
+        
+        if (step.models && containerIndex !== undefined) {
+            // Unassign from models array
+            const container = step.models[containerIndex]
+            if (container?.stepAssetId) {
+                setIsSaving(true)
+                try {
+                    await apiClient.deleteStepAsset(container.stepAssetId)
+                    setStep(prev => {
+                        if (!prev || !prev.models) return prev
+                        return { ...prev, models: prev.models.filter((_, i) => i !== containerIndex) }
+                    })
+                } catch (err) {
+                    console.error('Failed to unassign asset:', err)
+                    setError(`Failed to unassign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
+                } finally {
+                    setIsSaving(false)
+                }
+            }
+        } else if (step.stepAssetId) {
+            // Legacy single model unassign
+            setIsSaving(true)
+            try {
+                await apiClient.deleteStepAsset(step.stepAssetId)
+                setStep({ ...step, model: undefined, modelName: undefined, stepAssetId: undefined, animation: undefined })
+            } catch (err) {
+                console.error('Failed to unassign asset:', err)
+                setError(`Failed to unassign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            } finally {
+                setIsSaving(false)
+            }
+        } else {
             setStep({ ...step, model: undefined, modelName: undefined, stepAssetId: undefined, animation: undefined })
-            return
         }
+    }
+
+    async function updateModelAnimation(containerIndex: number, animation: string) {
+        if (!step || !step.models || !step.models[containerIndex]) return
+        const container = step.models[containerIndex]
+        if (!container.stepAssetId) return
+        
         setIsSaving(true)
         try {
-            await apiClient.deleteStepAsset(step.stepAssetId)
-            setStep({ ...step, model: undefined, modelName: undefined, stepAssetId: undefined, animation: undefined })
+            // Update the step asset metadata with animation via API client
+            await apiClient.updateStepAssetMetadata(container.stepAssetId, { animation: animation || null })
+            
+            // Update local state
+            setStep(prev => {
+                if (!prev || !prev.models) return prev
+                const updated = [...prev.models]
+                updated[containerIndex] = { ...updated[containerIndex], animation }
+                return { ...prev, models: updated }
+            })
         } catch (err) {
-            console.error('Failed to unassign asset:', err)
-            setError(`Failed to unassign asset: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            console.error('Failed to update animation:', err)
+            setError(`Failed to update animation: ${err instanceof Error ? err.message : 'Unknown error'}`)
         } finally {
             setIsSaving(false)
         }
@@ -209,6 +300,7 @@ export default function ConfigureStep() {
                                                 onSelect={() => { /* no-op - single step */ }}
                                                 onUpdate={updateStep}
                                                 onUnassign={unassignModel}
+                                                onAnimationUpdate={updateModelAnimation}
                                                 onRemove={() => { /* removal handled in module page */ }}
                                                 isSaving={isSaving}
                                                 assets={assets}
@@ -224,6 +316,7 @@ export default function ConfigureStep() {
                                         onSelect={() => { /* no-op - single step */ }}
                                         onUpdate={updateStep}
                                         onUnassign={unassignModel}
+                                        onAnimationUpdate={updateModelAnimation}
                                         onRemove={() => { /* removal handled in module page */ }}
                                         isSaving={isSaving}
                                         assets={assets}

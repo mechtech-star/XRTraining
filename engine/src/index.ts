@@ -66,28 +66,24 @@ async function bootstrap() {
   // If runtime payload contains an asset reference for the model, use it
   // to set the model asset URL (and optional name) so the engine loads
   // the published model instead of the local default.
-  if (runtimePayload && Array.isArray(runtimePayload.assets) && runtimePayload.steps && runtimePayload.steps.length > 0) {
+  if (runtimePayload && Array.isArray(runtimePayload.assets)) {
     try {
-      const firstStep: any = runtimePayload.steps[0];
-      const modelAssetId: string | undefined = firstStep?.model?.assetId;
-      console.log("[Engine] First step model reference:", firstStep?.model);
-      if (modelAssetId) {
-        const found = (runtimePayload.assets as any[]).find((a: any) => a.id === modelAssetId);
-        console.log("[Engine] Found model asset:", found);
-        if (found && found.url) {
-          // resolve relative media URLs to absolute backend origin
-          const resolved = found.url.startsWith("http") ? found.url : `${BACKEND_ORIGIN}${found.url}`;
-          assets.model.url = resolved;
-          // store a friendly name if available (fallback to id or filename)
-          const friendly = found.originalFilename ?? found.id ?? resolved.split("/").pop();
-          (assets.model as any).name = friendly;
-          // update exported MODEL_URL so other modules can reference the runtime URL
-          setModelUrl(resolved, friendly as string);
-          console.log("[Engine] Model asset URL set to:", resolved);
+      // Map published assets into the engine asset manifest using distinct keys
+      (runtimePayload.assets as any[]).forEach((a: any) => {
+        if (!a || !a.url) return;
+        const resolved = a.url.startsWith("http") ? a.url : `${BACKEND_ORIGIN}${a.url}`;
+        const isGltf = /\.glb$|\.gltf$/i.test(a.url) || a.type === 'gltf' || (a.mimeType && a.mimeType.includes('gltf'));
+        const key = `model_${a.id}`;
+        if (isGltf) {
+          assets[key] = { url: resolved, type: AssetType.GLTF, priority: "critical" };
+        } else if (a.type === 'texture' || /\.png$|\.jpe?g$/i.test(a.url)) {
+          assets[a.id] = { url: resolved, type: AssetType.Texture, priority: "background" };
+        } else if (a.type === 'audio' || /\.mp3$|\.wav$/i.test(a.url)) {
+          assets[a.id] = { url: resolved, type: AssetType.Audio, priority: "background" };
         }
-      }
+      });
     } catch (e) {
-      console.warn("Failed to derive model asset from runtime payload:", e);
+      console.warn("Failed to map runtime assets into manifest:", e);
     }
   }
 
@@ -100,19 +96,34 @@ async function bootstrap() {
       // Find the corresponding button actions if we can, or use empty
       const defaultStep = DEFAULT_STEPS.find(ds => ds.stepNumber === rStep.orderIndex - 1);
       const buttons = defaultStep?.buttons || {};
-      
-      // Extract animation clip name from runtime payload
-      const animationClip = rStep.animation?.clip || null;
-      console.log(`[Engine] Step ${rStep.orderIndex} animation:`, animationClip);
-      
+      // Build models[] for this step. Support both legacy single `model` and new `models[]`.
+      const models: any[] = [];
+      // If authors published a models[] array, prefer that
+      if (Array.isArray(rStep.models) && rStep.models.length > 0) {
+        rStep.models.forEach((m: any) => {
+          const assetId = m.assetId ?? m.asset?.id ?? null;
+          // Extract animation from model entry (per-asset animation)
+          const animationClip = m.animation ?? null;
+          const key = assetId ? `model_${assetId}` : (m.key ?? 'model');
+          models.push({ key, assetId, animation: animationClip, transform: m.transform ?? null, slot: m.slot });
+        });
+      } else {
+        // Legacy support: single model reference
+        const animationClip = rStep.animation?.clip || null;
+        const modelAssetId: string | undefined = rStep?.model?.assetId;
+        if (modelAssetId) {
+          models.push({ key: `model_${modelAssetId}`, assetId: modelAssetId, animation: animationClip });
+        } else {
+          models.push({ key: 'model', animation: animationClip });
+        }
+      }
+
       const step = {
         id: `step${rStep.orderIndex}Panel`,
         stepNumber: rStep.orderIndex - 1,
         ui: { uiUrl: rStep.uiUrl },
         panelOptions: PANEL_CONFIG,
-        assets: {
-          model: { animation: animationClip },
-        },
+        models,
         buttons,
       };
       console.log(`[Engine] Created step ${rStep.orderIndex}:`, step);

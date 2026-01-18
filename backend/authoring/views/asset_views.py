@@ -40,16 +40,34 @@ class StepAssetAssignView(APIView):
         step = get_object_or_404(Step, pk=step_id)
         asset_id = request.data.get("assetId")
         priority = request.data.get("priority", 0)
+        metadata = request.data.get("metadata", None)
         if not asset_id:
             return Response({"detail": "assetId is required"}, status=status.HTTP_400_BAD_REQUEST)
         asset = get_object_or_404(Asset, pk=asset_id)
-        step_asset, _ = StepAsset.objects.update_or_create(step=step, asset=asset, defaults={"priority": priority})
+        defaults = {"priority": priority}
+        if metadata is not None:
+            defaults["metadata"] = metadata
+        step_asset, _ = StepAsset.objects.update_or_create(step=step, asset=asset, defaults=defaults)
         return Response({"id": str(step_asset.id), "priority": step_asset.priority, "assetId": str(asset.id)}, status=status.HTTP_201_CREATED)
 
 
 class StepAssetDeleteView(generics.DestroyAPIView):
     queryset = StepAsset.objects.all()
     lookup_field = "pk"
+
+    def put(self, request, pk):
+        """Update step asset metadata (e.g., animation)."""
+        step_asset = get_object_or_404(StepAsset, pk=pk)
+        metadata = request.data.get('metadata')
+        if metadata is not None:
+            step_asset.metadata = metadata
+            step_asset.save(update_fields=['metadata'])
+        return Response({
+            'id': str(step_asset.id),
+            'priority': step_asset.priority,
+            'assetId': str(step_asset.asset.id),
+            'metadata': step_asset.metadata
+        }, status=status.HTTP_200_OK)
 
 
 class AssetDeleteView(generics.DestroyAPIView):

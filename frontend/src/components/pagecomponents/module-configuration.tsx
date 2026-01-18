@@ -4,9 +4,7 @@ type Step = {
     id: string
     title: string
     content: string
-    model?: string
-    modelName?: string
-    stepAssetId?: string
+    models?: Array<{ assetId: string; stepAssetId?: string; metadata?: any }>
     animation?: string
 }
 
